@@ -1,7 +1,7 @@
 import asyncio
 
 
-from Core.Extractor.ExtractorModels import ExtractResult, ExtractResult
+from Core.Extractor.ExtractorModels import ExtractResult
 from Core.Extractor.ExtractorManager import ExtractorManager
 from Core.Media.MediaManager import MediaManager
 from Core.Helpers import konsol
@@ -183,10 +183,10 @@ async def __baglanti_secimi_yap( extract_data):
         )
     return extract_data
 
-asyncio.run(eklenti_ile_arama(suanki_eklenti))
+
     
 
-def __medya_ayarla(secilen_data):
+async def __medya_ayarla(secilen_data):
     """
     Medya bilgilerini ayarlar.
     """
@@ -209,3 +209,7 @@ def __medya_ayarla(secilen_data):
 # for data in secilen_data:
 #     __medya_ayarla(data)
 #     medya_yonetici.play_media(data)
+
+
+
+asyncio.run(eklenti_ile_arama(suanki_eklenti))
