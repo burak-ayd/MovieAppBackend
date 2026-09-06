@@ -8,6 +8,8 @@ from typing import Any, Dict, List, Optional
 
 from Core.Extractor.ExtractorBase import ExtractorBase
 from Core.Extractor.ExtractorModels import ExtractResult, Subtitle
+from Core.Helpers import debug_log, is_debug
+
 
 
 class JsUnpacker:
@@ -222,9 +224,7 @@ class RapidrameExtractor(ExtractorBase):
         CF v3 challenge gibi zor korumalar için curl_cffi (TLS fingerprint) gerekiyor.
         """
         import asyncio
-        import sys
-        def _log(msg):
-            print(msg, file=sys.stderr, flush=True)
+        _log = debug_log
 
         _log(f"[{self.name}] _fetch_page START url={url[:100]}")
         text = ""
@@ -421,30 +421,31 @@ class RapidrameExtractor(ExtractorBase):
             # kaçırmamak için tüm HTML'i taramak gerekiyor.
             fn_name, parts_str, var_name = find_close_decoder(html_content)
             if not fn_name:
-                print(f"[DEBUG {self.name}] Metot 0: call site bulunamadı")
+                debug_log(f"[DEBUG {self.name}] Metot 0: call site bulunamadı")
                 matches = list(re.finditer(r'var\s+\w+\s*=\s*\w+\s*\(\s*\[', unpacked_code))
-                print(f"[DEBUG {self.name}] var=X=Y([ pattern sayısı: {len(matches)}")
+                debug_log(f"[DEBUG {self.name}] var=X=Y([ pattern sayısı: {len(matches)}")
                 # Tüm "var X = Y" atamalarını yaz (çağrı yerleri farklı biçimde olabilir)
                 all_vars = list(re.finditer(r'var\s+(\w+)\s*=\s*(\w+)', unpacked_code))
-                print(f"[DEBUG {self.name}] toplam var ataması: {len(all_vars)}")
+                debug_log(f"[DEBUG {self.name}] toplam var ataması: {len(all_vars)}")
                 for m in all_vars[:10]:
-                    print(f"[DEBUG {self.name}]   var {m.group(1)} = {m.group(2)}...")
+                    debug_log(f"[DEBUG {self.name}]   var {m.group(1)} = {m.group(2)}...")
                 # Sayfada herhangi bir master.txt/master.m3u8 URL var mı?
                 urls = re.findall(r'https?://[^\s\'"<>]+\.(?:m3u8|txt)', unpacked_code)
-                print(f"[DEBUG {self.name}] master URL'leri: {urls[:3]}")
+                debug_log(f"[DEBUG {self.name}] master URL'leri: {urls[:3]}")
                 # Hash rate / contentUrl gibi JSON-LD URL'leri
                 ld_urls = re.findall(r'"contentUrl"\s*:\s*"([^"]+)"', unpacked_code)
-                print(f"[DEBUG {self.name}] JSON-LD contentUrl: {ld_urls[:2]}")
+                debug_log(f"[DEBUG {self.name}] JSON-LD contentUrl: {ld_urls[:2]}")
                 # Sayfayı diske kaydet debug için
-                try:
-                    import os
-                    os.makedirs(r"D:\Projeler\MovieAppNew\debug_dumps", exist_ok=True)
-                    with open(rf"D:\Projeler\MovieAppNew\debug_dumps\close_{int(__import__('time').time())}.html", "w", encoding="utf-8") as f:
-                        f.write(html_content)
-                    print(f"[DEBUG {self.name}] html kaydedildi")
-                except Exception as e:
-                    print(f"[DEBUG {self.name}] kaydetme hatası: {e}")
-            print(f"[DEBUG {self.name}] Metot 0: fn={fn_name} var={var_name} has_parts={parts_str is not None}")
+                if is_debug():
+                    try:
+                        import os
+                        os.makedirs(r"D:\Projeler\MovieAppNew\debug_dumps", exist_ok=True)
+                        with open(rf"D:\Projeler\MovieAppNew\debug_dumps\close_{int(__import__('time').time())}.html", "w", encoding="utf-8") as f:
+                            f.write(html_content)
+                        debug_log(f"[DEBUG {self.name}] html kaydedildi")
+                    except Exception as e:
+                        debug_log(f"[DEBUG {self.name}] kaydetme hatası: {e}")
+            debug_log(f"[DEBUG {self.name}] Metot 0: fn={fn_name} var={var_name} has_parts={parts_str is not None}")
             if fn_name and parts_str:
                 try:
                     parts = json.loads(parts_str)
@@ -453,18 +454,18 @@ class RapidrameExtractor(ExtractorBase):
                         import ast
                         parts = ast.literal_eval(parts_str)
                     except Exception as e:
-                        print(f"[DEBUG {self.name}] parse parts başarısız: {e}")
+                        debug_log(f"[DEBUG {self.name}] parse parts başarısız: {e}")
                         parts = re.findall(r'["\']([a-zA-Z0-9+/=]+)["\']', parts_str)
                 key1, key2 = extract_close_keys(html_content, fn_name)
-                print(f"[DEBUG {self.name}] extract_close_keys: key1={key1!r} key2={key2!r}")
+                debug_log(f"[DEBUG {self.name}] extract_close_keys: key1={key1!r} key2={key2!r}")
                 if key1 and key2:
                     try:
                         stream_url = decode_close_obfuscation(parts, key1, key2)
-                        print(f"[DEBUG {self.name}] close decoder OK: var={var_name} fn={fn_name} url={stream_url[:80]}")
+                        debug_log(f"[DEBUG {self.name}] close decoder OK: var={var_name} fn={fn_name} url={stream_url[:80]}")
                     except Exception as e:
-                        print(f"[!] {self.name} close decoder hatası: {e}")
+                        debug_log(f"[!] {self.name} close decoder hatası: {e}")
                 else:
-                    print(f"[DEBUG {self.name}] close decoder anahtarları bulunamadı (fn={fn_name})")
+                    debug_log(f"[DEBUG {self.name}] close decoder anahtarları bulunamadı (fn={fn_name})")
 
             # Metot A: Dinamik dc_ pipeline çözümleyici (playerr / rplayer)
             dc_func_match = re.search(r'function\s+(dc_[a-zA-Z0-9_]+)\s*\(', unpacked_code)

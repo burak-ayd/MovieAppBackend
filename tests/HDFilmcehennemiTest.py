@@ -4,7 +4,7 @@ import asyncio
 from Core.Extractor.ExtractorModels import ExtractResult
 from Core.Extractor.ExtractorManager import ExtractorManager
 from Core.Media.MediaManager import MediaManager
-from Core.Helpers import konsol
+from Core.Helpers import konsol, debug_log, is_debug
 from Core.Plugin.PluginManager import PluginManager
 from Core.Plugin.PluginBase import PluginBase
 from Core.Extractor.ExtractorBase import ExtractorBase
@@ -159,15 +159,15 @@ async def extractor_ile_oynat( secilen_link: str):
         except Exception as hata:
             konsol.print(f"[bold red]{cikarici.name} » hata oluştu: {hata}[/bold red]")
             return 0
-        print(extract_data)
+        debug_log(extract_data)
 
         secilen_data = await __baglanti_secimi_yap(extract_data)
-        print("secilen_data : ", secilen_data)
+        debug_log("secilen_data : ", secilen_data)
         if not secilen_data:
             return 0
 
         await __medya_ayarla(secilen_data)
-        print("medya ayarlandı, oynatılıyor...", secilen_data)
+        debug_log("medya ayarlandı, oynatılıyor...", secilen_data)
         medya_yonetici.play_media(secilen_data)
     
         konsol.print("[bold green]İçerik bitti![/bold green]")

@@ -4,7 +4,7 @@ import subprocess
 import tempfile
 import uuid
 
-from Core.Helpers import konsol
+from Core.Helpers import konsol, is_debug, debug_log
 from Core.Extractor.ExtractorModels import ExtractResult
 
 # Browser User-Agent — segment CDN User-Agent filtresini geçer
@@ -42,8 +42,7 @@ class MediaHandler:
             "Origin": headers.get("Origin", ""),
         }
 
-        def _log(msg):
-            print(msg, file=sys.stderr, flush=True)
+        _log = debug_log
 
         _log(f"[SUB] '{subtitle.name}' indiriliyor: {subtitle.url[:80]}")
 
@@ -124,7 +123,7 @@ class MediaHandler:
             )
             vlc_command.append(extract_data.url)
             
-            print(f"Çalıştırılan VLC komutu: {' '.join(vlc_command)}")  # Debug için komutu yazdır
+            debug_log(f"Çalıştırılan VLC komutu: {' '.join(vlc_command)}")
 
             with open(os.devnull, "w") as devnull:
                 subprocess.run(vlc_command, stdout=devnull, stderr=devnull, check=True)
@@ -140,7 +139,7 @@ class MediaHandler:
         konsol.log(f"[yellow][»] MPV ile Oynatılıyor : {extract_data.url}")
         # URL'de görünmez karakter olabilir; repr ile gerçek byte'ları göster
         if any(ord(c) > 127 or ord(c) < 32 for c in extract_data.url if c not in "\t\n\r"):
-            print(f"[DEBUG MPV] URL repr: {extract_data.url!r}")
+            debug_log(f"[DEBUG MPV] URL repr: {extract_data.url!r}")
         try:
             mpv_command = ["mpv"]
 
@@ -198,7 +197,7 @@ class MediaHandler:
 
             mpv_command.append(extract_data.url)
             
-            print(f"Çalıştırılan MPV komutu: {' '.join(mpv_command)}")  # Debug için komutu yazdır
+            debug_log(f"Çalıştırılan MPV komutu: {' '.join(mpv_command)}")
 
             with open(os.devnull, "w") as devnull:
                 subprocess.run(mpv_command, stdout=devnull, stderr=devnull, check=True)

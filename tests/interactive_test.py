@@ -35,6 +35,7 @@ from rich.prompt import Confirm, IntPrompt, Prompt
 from rich.table import Table
 from rich.text import Text
 
+from Core.Helpers import is_debug, set_debug, debug_log
 from Core.Extractor.ExtractorBase import ExtractorBase
 from Core.Extractor.ExtractorManager import ExtractorManager
 from Core.Extractor.ExtractorModels import ExtractResult
@@ -101,9 +102,10 @@ class InteractiveTestRunner:
             plugin_count = len(self.plugins)
             extractor_count = len(self.extractor_mgr.extractors)
 
+            debug_status = "[bold green]AÇIK[/bold green]" if is_debug() else "[dim]KAPALI[/dim]"
             konsol.print(
                 f"  [bold]Durum:[/bold] [green]{plugin_count}[/green] Eklenti, "
-                f"[green]{extractor_count}[/green] Extractor yüklü.\n"
+                f"[green]{extractor_count}[/green] Extractor yüklü | Debug Modu: {debug_status}\n"
             )
 
             table = Table(box=box.SIMPLE_HEAVY, show_header=False, padding=(0, 2))
@@ -114,12 +116,13 @@ class InteractiveTestRunner:
             table.add_row("[2]", "Toplu Arama Yap (Tüm Eklentilerde Eşzamanlı Arama)")
             table.add_row("[3] ", "Yüklü Eklentiler ve Extractor'lar Özeti")
             table.add_row("[4] ", "Doğrudan URL Testi (load_item / load_links / Extractor)")
+            table.add_row("[d] ", f"Debug Modunu Aç/Kapat (Şu an: {'Açık' if is_debug() else 'Kapalı'})")
             table.add_row("[0] ", "Çıkış")
 
             konsol.print(table)
             konsol.print()
 
-            secim = Prompt.ask("[bold cyan]Seçiminiz[/bold cyan]", choices=["1", "2", "3", "4", "0"], default="1")
+            secim = Prompt.ask("[bold cyan]Seçiminiz[/bold cyan]", choices=["1", "2", "3", "4", "d", "D", "0"], default="1")
 
             if secim == "1":
                 await self.menu_select_and_test_plugin()
@@ -129,6 +132,10 @@ class InteractiveTestRunner:
                 self.menu_show_system_overview()
             elif secim == "4":
                 await self.menu_direct_url_test()
+            elif secim.lower() == "d":
+                new_state = not is_debug()
+                set_debug(new_state)
+                konsol.print(f"\n[bold gold1]Debug modu {'AÇILDI' if new_state else 'KAPATILDI'}.[/bold gold1]\n")
             elif secim == "0":
                 konsol.print("\n[bold yellow]Oturumlar kapatılıyor...[/bold yellow]")
                 await self.plugin_mgr.close_plugins()
