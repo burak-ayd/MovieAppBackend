@@ -10,6 +10,7 @@ from Core.Plugin.PluginBase import PluginBase
 from Core.Plugin.PluginModels import SearchResult, MainPageResult, MovieInfo, SeriesInfo
 from Core.Helpers.TitleHelper import TitleHelper
 
+
 class HDFilmCehennemi(PluginBase):
     """HDFilmCehennemi kaynak site kazıyıcısı."""
 

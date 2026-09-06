@@ -5,12 +5,13 @@ from Core.Plugin.PluginBase import PluginBase
 from Core.Plugin.PluginModels import SearchResult, MainPageResult, MovieInfo, SeriesInfo, Episode
 from Core.Helpers.TitleHelper import TitleHelper
 
+
 class Dizilla(PluginBase):
     """Dizilla kaynak site kazıyıcısı (dizi odaklı)."""
 
     name = "Dizilla"
     language = "tr"
-    main_url = "https://www.dizilla.club"
+    main_url = "https://dizilla.now"
     description = "Dizilla - Türkçe dizi izleme sitesi"
     main_page = {
         "Son Bölümler": "/",

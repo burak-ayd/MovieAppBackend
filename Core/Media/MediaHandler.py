@@ -1,8 +1,6 @@
 
 import os
 import subprocess
-import tempfile
-import uuid
 
 from Core.Helpers import konsol, is_debug, debug_log
 from Core.Extractor.ExtractorModels import ExtractResult
@@ -22,59 +20,6 @@ class MediaHandler:
 
         self.headers = headers
         self.title   = title
-
-    def _materialize_subtitle(self, subtitle, headers: dict) -> str | None:
-        """Altyazı URL'sini indirip geçici dosyaya yazar, mpv'ye lokal yol döndürür.
-        CF korumalı domain'ler (hdfilmcehennemi.mobi gibi) için cloudscraper fallback.
-        Başarısız olursa URL'yi doğrudan döndürür (mpv kendi TLS fingerprint'iyle dener).
-        """
-        import sys
-        from urllib.parse import urlparse
-        path = urlparse(subtitle.url).path
-        ext = os.path.splitext(path)[1] or ".vtt"
-        # Güvenli dosya adı: subtitle.name slug + unique id
-        safe_name = "".join(c if c.isalnum() else "_" for c in (subtitle.name or "sub"))
-        tmp_path = os.path.join(tempfile.gettempdir(), f"omnirule_sub_{safe_name}_{uuid.uuid4().hex[:8]}{ext}")
-
-        request_headers = {
-            "User-Agent": headers.get("User-Agent", BROWSER_USER_AGENT),
-            "Referer": headers.get("Referer", ""),
-            "Origin": headers.get("Origin", ""),
-        }
-
-        _log = debug_log
-
-        _log(f"[SUB] '{subtitle.name}' indiriliyor: {subtitle.url[:80]}")
-
-        try:
-            import httpx
-            with httpx.Client(timeout=15.0, follow_redirects=True) as client:
-                r = client.get(subtitle.url, headers=request_headers)
-                _log(f"[SUB] httpx status={r.status_code} bytes={len(r.content)}")
-                if r.status_code == 200 and r.content:
-                    with open(tmp_path, "wb") as f:
-                        f.write(r.content)
-                    _log(f"[SUB] httpx OK → {tmp_path}")
-                    return tmp_path
-        except Exception as e:
-            _log(f"[SUB] httpx exception: {e!r}")
-
-        # CF fallback (sync cloudscraper)
-        try:
-            from cloudscraper import CloudScraper
-            with CloudScraper() as s:
-                r = s.get(subtitle.url, headers=request_headers, timeout=15)
-                _log(f"[SUB] cloudscraper status={r.status_code} bytes={len(r.content)}")
-                if r.status_code == 200 and r.content:
-                    with open(tmp_path, "wb") as f:
-                        f.write(r.content)
-                    _log(f"[SUB] cloudscraper OK → {tmp_path}")
-                    return tmp_path
-        except Exception as e:
-            _log(f"[SUB] cloudscraper exception: {e!r}")
-
-        _log(f"[SUB] '{subtitle.name}' indirilemedi, URL doğrudan kullanılacak")
-        return subtitle.url
 
     def play_media(self, extract_data: ExtractResult):
         # Referer varsa headers'a ekle
@@ -135,11 +80,52 @@ class MediaHandler:
             konsol.print("[red]VLC bulunamadı! VLC kurulu olduğundan emin olun.[/red]")
             konsol.print({"title": self.title, "url": extract_data.url, "headers": self.headers})
 
+    def _create_sub_loader_script(self, subtitles: list) -> str:
+        """Altyazıları indirmeden, doğrudan URL'leri MPV'ye 'sub-add' ile temiz isimler (Forced, Turkish vb.)
+        ve dil kodları vererek yükleyen dinamik bir MPV Lua betiği oluşturur.
+        """
+        import json
+        import tempfile
+        from Core.Helpers.SubtitleHelper import SubtitleHelper
+
+        sub_list = []
+        name_counts = {}
+        for sub in subtitles:
+            base_name = sub.name or "Subtitle"
+            count = name_counts.get(base_name, 0)
+            name_counts[base_name] = count + 1
+            display_name = base_name if count == 0 else f"{base_name} {count + 1}"
+            lang_code = SubtitleHelper.get_language_code(base_name)
+            sub_list.append({
+                "url": sub.url,
+                "title": display_name,
+                "lang": lang_code,
+            })
+
+        subs_json = json.dumps(sub_list, ensure_ascii=False)
+        lua_code = f"""-- Dynamic Subtitle Loader for MPV
+local utils = require 'mp.utils'
+local subs = utils.parse_json([===[{subs_json}]===])
+
+mp.register_event("file-loaded", function()
+    if subs then
+        for _, s in ipairs(subs) do
+            mp.commandv("sub-add", s.url, "auto", s.title, s.lang)
+        end
+    end
+end)
+"""
+        with tempfile.NamedTemporaryFile(suffix=".lua", mode="w", encoding="utf-8", delete=False) as f:
+            f.write(lua_code)
+            return f.name
+
     def play_with_mpv(self, extract_data: ExtractResult):
         konsol.log(f"[yellow][»] MPV ile Oynatılıyor : {extract_data.url}")
         # URL'de görünmez karakter olabilir; repr ile gerçek byte'ları göster
         if any(ord(c) > 127 or ord(c) < 32 for c in extract_data.url if c not in "\t\n\r"):
             debug_log(f"[DEBUG MPV] URL repr: {extract_data.url!r}")
+        
+        temp_sub_script = None
         try:
             mpv_command = ["mpv"]
 
@@ -184,16 +170,11 @@ class MediaHandler:
             if "molystream" in url_lower:
                 mpv_command.extend(["--demuxer=lavf", "--demuxer-lavf-format=hls"])
 
-            # Altyazıları mpv başlamadan önce indir (CF korumalı domain'ler için mpv'nin TLS
-            # fingerprint'i yetersiz kalıyor). İndirilenler geçici dosyaya yazılır ve mpv'ye
-            # lokal yol olarak geçilir.
+            # Altyazıları indirmeden doğrudan URL ve temiz isimlerle MPV Lua betiği ile yükle
             if extract_data.subtitles:
-                mpv_command.append("--sub-demuxer=subrandr")
-                for subtitle in extract_data.subtitles:
-                    local_path = self._materialize_subtitle(subtitle, self.headers)
-                    if local_path:
-                        mpv_command.append(f"--sub-file={local_path}")
-                mpv_command.append("--sid=auto")
+                temp_sub_script = self._create_sub_loader_script(extract_data.subtitles)
+                mpv_command.append(f"--script={temp_sub_script}")
+                mpv_command.append("--slang=tr,tur,Turkish,en,eng,English")
 
             mpv_command.append(extract_data.url)
             
@@ -207,6 +188,12 @@ class MediaHandler:
         except FileNotFoundError:
             konsol.print("[red]mpv bulunamadı! mpv kurulu olduğundan emin olun.[/red]")
             konsol.print({"title": self.title, "url": extract_data.url, "headers": self.headers})
+        finally:
+            if temp_sub_script and os.path.exists(temp_sub_script):
+                try:
+                    os.remove(temp_sub_script)
+                except Exception:
+                    pass
 
     def play_with_ytdlp(self, extract_data: ExtractResult):
         konsol.log(f"[yellow][»] yt-dlp ile Oynatılıyor : {extract_data.url}")

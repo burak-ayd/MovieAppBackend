@@ -11,9 +11,12 @@ from Core.Extractor.ExtractorBase import ExtractorBase
 from InquirerPy import inquirer
 from Core.Plugin.PluginModels import SeriesInfo, MovieInfo
 from contextlib import suppress
+from Core.Helpers.Kontrol import MainUrlGuncelleyici
 
 
 async def select_from_fuzzy(message, choices):
+    if not choices:
+        return None
     return await inquirer.fuzzy(
         message    = message,
         choices    = choices,
@@ -36,8 +39,27 @@ suanki_eklenti =eklentiler_yonetici.select_plugin("HDFilmCehennemi")
 
 async def eklenti_ile_arama(eklenti:PluginBase):
 
-    sorgu = input("Arama: ")
+    sorgu = input("Arama: ").strip()
+    if not sorgu:
+        return
     sonuclar = await eklenti.search(sorgu)
+
+    if not sonuclar:
+        konsol.print(f"[bold red]'{sorgu}' için hiçbir sonuç bulunamadı![/bold red]")
+        return
+
+    secilen_sonuc = await eklenti_sonuc_secimi("İçerik sonuçlarından birini seçin:", sonuclar)
+
+    if secilen_sonuc:
+        await sonuc_detaylari_goster({"plugin": eklenti.name, "url": secilen_sonuc})
+
+async def get_main_page(eklenti:PluginBase):
+
+    sonuclar = await eklenti.get_main_page()
+
+    if not sonuclar:
+        konsol.print(f"[bold red]Hiçbir sonuç bulunamadı![/bold red]")
+        return
 
     secilen_sonuc = await eklenti_sonuc_secimi("İçerik sonuçlarından birini seçin:", sonuclar)
 
@@ -46,6 +68,8 @@ async def eklenti_ile_arama(eklenti:PluginBase):
     
     
 async def eklenti_sonuc_secimi(message, sonuclar: list):
+    if not sonuclar:
+        return None
     return await select_from_fuzzy(
         message = message,
         choices = [{"name": sonuc.title, "value": sonuc.url} for sonuc in sonuclar]
@@ -210,6 +234,8 @@ async def __medya_ayarla(secilen_data):
 #     __medya_ayarla(data)
 #     medya_yonetici.play_media(data)
 
-
-
-asyncio.run(eklenti_ile_arama(suanki_eklenti))
+if __name__ == "__main__":
+    # asyncio.run(eklenti_ile_arama(suanki_eklenti))
+    guncelleyici = MainUrlGuncelleyici()
+    guncelleyici.guncelle()
+    asyncio.run(get_main_page(suanki_eklenti))

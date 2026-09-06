@@ -11,3 +11,6 @@ from .Extractor.ExtractorModels  import ExtractResult, Subtitle
 
 from .Media.MediaManager import MediaManager
 from .Media.MediaHandler import MediaHandler
+
+from .Helpers.Kontrol import MainUrlGuncelleyici
+

@@ -17,7 +17,6 @@ from Core.Helpers import konsol
 from Core.Plugin.PluginBase import PluginBase
 from Core.Plugin.PluginModels import Episode, MainPageResult, SearchResult, SeriesInfo
 
-
 class DiziBox(PluginBase):
     name        = "DiziBox"
     language    = "tr"
