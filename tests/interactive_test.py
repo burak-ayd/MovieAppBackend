@@ -598,7 +598,8 @@ class InteractiveTestRunner:
             ext = self.extractor_mgr.find_extractor(item["url"])
             item["extractor"] = ext
             if ext:
-                ext_col = f"[bold green][+] {ext.name}[/bold green]"
+                ext_label = getattr(ext, "get_source_label", lambda u: ext.name)(item["url"])
+                ext_col = f"[bold green][+] {ext_label}[/bold green]"
             else:
                 ext_col = "[dim yellow]Extractor Yok (Direkt)[/dim yellow]"
             table.add_row(str(idx), item["name"], ext_col, item["url"])

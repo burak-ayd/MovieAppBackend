@@ -336,13 +336,16 @@ class HDFilmCehennemi(PluginBase):
                     except Exception:
                         html_content = api_resp.text if "api_resp" in locals() else ""
 
-                    # iframe URL'sini çıkar
+                    # iframe URL'sini çıkar (iframe class'ı Close/Rapidrame ayrımı için korunur)
                     src_match = re.search(r'data-src=["\']([^"\']+)["\']', html_content) or re.search(r'src=["\']([^"\']+)["\']', html_content)
                     if src_match:
                         iframe = src_match.group(1).replace(r"\/", "/").replace("\\", "")
-                        if "?rapidrame_id=" in iframe:
-                            rapidrame_id = iframe.split("?rapidrame_id=")[1].split("&")[0].strip()
-                            iframe = f"{self.main_url}/playerr/{rapidrame_id}/"
+                        # NOT: Close iframe'leri (?rapidrame_id= içerir) hdfilmcehennemi.mobi/video/embed/ adresini
+                        # işaret eder ve kendine özgü closeplayer sayfası kullanır. Rapidrame iframe'leri
+                        # doğrudan rplayer/{id}/ adresini işaret eder. Bu ikisini playerr/{id}/ adresine
+                        # çevirmek Close iframe'inin yüklenememesine ve yalnızca Rapidrame kaynağının
+                        # gelmesine neden olur. Bu yüzden olduğu gibi bırakıyoruz; extractor domain
+                        # eşleştirmesi ile doğru çözümleyiciyi seçer.
 
                         # CehennemPass download sayfası ise
                         if "cehennempass.pw/download/" in iframe:

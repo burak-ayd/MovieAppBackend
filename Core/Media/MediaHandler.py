@@ -1,6 +1,8 @@
 
 import os
 import subprocess
+import tempfile
+import uuid
 
 from Core.Helpers import konsol
 from Core.Extractor.ExtractorModels import ExtractResult
@@ -20,6 +22,60 @@ class MediaHandler:
 
         self.headers = headers
         self.title   = title
+
+    def _materialize_subtitle(self, subtitle, headers: dict) -> str | None:
+        """Altyazı URL'sini indirip geçici dosyaya yazar, mpv'ye lokal yol döndürür.
+        CF korumalı domain'ler (hdfilmcehennemi.mobi gibi) için cloudscraper fallback.
+        Başarısız olursa URL'yi doğrudan döndürür (mpv kendi TLS fingerprint'iyle dener).
+        """
+        import sys
+        from urllib.parse import urlparse
+        path = urlparse(subtitle.url).path
+        ext = os.path.splitext(path)[1] or ".vtt"
+        # Güvenli dosya adı: subtitle.name slug + unique id
+        safe_name = "".join(c if c.isalnum() else "_" for c in (subtitle.name or "sub"))
+        tmp_path = os.path.join(tempfile.gettempdir(), f"omnirule_sub_{safe_name}_{uuid.uuid4().hex[:8]}{ext}")
+
+        request_headers = {
+            "User-Agent": headers.get("User-Agent", BROWSER_USER_AGENT),
+            "Referer": headers.get("Referer", ""),
+            "Origin": headers.get("Origin", ""),
+        }
+
+        def _log(msg):
+            print(msg, file=sys.stderr, flush=True)
+
+        _log(f"[SUB] '{subtitle.name}' indiriliyor: {subtitle.url[:80]}")
+
+        try:
+            import httpx
+            with httpx.Client(timeout=15.0, follow_redirects=True) as client:
+                r = client.get(subtitle.url, headers=request_headers)
+                _log(f"[SUB] httpx status={r.status_code} bytes={len(r.content)}")
+                if r.status_code == 200 and r.content:
+                    with open(tmp_path, "wb") as f:
+                        f.write(r.content)
+                    _log(f"[SUB] httpx OK → {tmp_path}")
+                    return tmp_path
+        except Exception as e:
+            _log(f"[SUB] httpx exception: {e!r}")
+
+        # CF fallback (sync cloudscraper)
+        try:
+            from cloudscraper import CloudScraper
+            with CloudScraper() as s:
+                r = s.get(subtitle.url, headers=request_headers, timeout=15)
+                _log(f"[SUB] cloudscraper status={r.status_code} bytes={len(r.content)}")
+                if r.status_code == 200 and r.content:
+                    with open(tmp_path, "wb") as f:
+                        f.write(r.content)
+                    _log(f"[SUB] cloudscraper OK → {tmp_path}")
+                    return tmp_path
+        except Exception as e:
+            _log(f"[SUB] cloudscraper exception: {e!r}")
+
+        _log(f"[SUB] '{subtitle.name}' indirilemedi, URL doğrudan kullanılacak")
+        return subtitle.url
 
     def play_media(self, extract_data: ExtractResult):
         # Referer varsa headers'a ekle
@@ -82,6 +138,9 @@ class MediaHandler:
 
     def play_with_mpv(self, extract_data: ExtractResult):
         konsol.log(f"[yellow][»] MPV ile Oynatılıyor : {extract_data.url}")
+        # URL'de görünmez karakter olabilir; repr ile gerçek byte'ları göster
+        if any(ord(c) > 127 or ord(c) < 32 for c in extract_data.url if c not in "\t\n\r"):
+            print(f"[DEBUG MPV] URL repr: {extract_data.url!r}")
         try:
             mpv_command = ["mpv"]
 
@@ -118,13 +177,25 @@ class MediaHandler:
                 mpv_command.append(f"--http-header-fields={','.join(header_fields)}")
 
             # HLS için lavf demuxer zorla (dbx.molystream.org /q/1 URL'leri text/html döner)
+            # NOT: master.txt uzantılı CDN linkleri mpv/ffmpeg tarafından otomatik HLS olarak algılanır.
+            # Burada --demuxer-lavf-format=hls eklenmemelidir; mpv'de global lavf formatı zorlamak
+            # --sub-file ile yüklenen harici altyazı (.vtt/.srt) dosyalarını da hls olarak açmaya çalışıp
+            # 'avformat_open_input() failed' hatasıyla bozar.
             url_lower = extract_data.url.lower()
             if "molystream" in url_lower:
                 mpv_command.extend(["--demuxer=lavf", "--demuxer-lavf-format=hls"])
 
-            mpv_command.extend(
-                f"--sub-file={subtitle.url}" for subtitle in extract_data.subtitles
-            )
+            # Altyazıları mpv başlamadan önce indir (CF korumalı domain'ler için mpv'nin TLS
+            # fingerprint'i yetersiz kalıyor). İndirilenler geçici dosyaya yazılır ve mpv'ye
+            # lokal yol olarak geçilir.
+            if extract_data.subtitles:
+                mpv_command.append("--sub-demuxer=subrandr")
+                for subtitle in extract_data.subtitles:
+                    local_path = self._materialize_subtitle(subtitle, self.headers)
+                    if local_path:
+                        mpv_command.append(f"--sub-file={local_path}")
+                mpv_command.append("--sid=auto")
+
             mpv_command.append(extract_data.url)
             
             print(f"Çalıştırılan MPV komutu: {' '.join(mpv_command)}")  # Debug için komutu yazdır
