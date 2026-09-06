@@ -2,7 +2,7 @@ from abc import abstractmethod
 from typing import List, Union, Dict, Optional
 import httpx
 from Core.Plugin.PluginBase import PluginBase
-from Core.Plugin.PluginModels import SearchResult, MainPageResult, Movie, SeriesInfo
+from Core.Plugin.PluginModels import SearchResult, MainPageResult, MovieInfo, SeriesInfo
 
 class FlwBasePlugin(PluginBase):
     """Yönlendirme (redirect) zincirlerini çözen özel taban sınıf.

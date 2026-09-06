@@ -1,15 +1,14 @@
-# Bu paket @keyiflerolsun tarafından | @KekikAkademi için yazılmıştır.
+# Core/Extractor Package
 
-from Core.Extractor.ExtractorBase   import ExtractorBase
-from Core.Extractor.ExtractorLoader  import ExtractorLoader
-from Core.Extractor.ExtractorManager import ExtractorManager
-from Core.Extractor.ExtractorModels  import Subtitle, ExtractResult
-
+from .ExtractorBase import ExtractorBase
+from .ExtractorLoader import ExtractorLoader
+from .ExtractorManager import ExtractorManager
+from .ExtractorModels import ExtractResult, Subtitle
 
 __all__ = [
     "ExtractorBase",
     "ExtractorLoader",
     "ExtractorManager",
-    "Subtitle",
     "ExtractResult",
+    "Subtitle",
 ]

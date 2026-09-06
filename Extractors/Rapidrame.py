@@ -590,3 +590,7 @@ class RapidrameExtractor(ExtractorBase):
         except Exception as e:
             print(f"[!] {self.name} extract hatası ({url}): {e}")
             return None
+
+
+# Geriye dönük uyumluluk için alias
+Rapidrame = RapidrameExtractor

@@ -48,7 +48,7 @@ class MainUrlGuncelleyici:
         guncelleme_var = False
 
         for dosya_yolu in self.eklentiler:
-            eklenti_adi = dosya_yolu.split("/")[-1].replace(".py", "")
+            eklenti_adi = os.path.splitext(os.path.basename(dosya_yolu))[0]
     
             konsol.print()
             konsol.log(f"[~] Kontrol ediliyor : {eklenti_adi}")

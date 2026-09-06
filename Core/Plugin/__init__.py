@@ -1,18 +1,27 @@
-# Core/Plugin/__init__.py
+# Core/Plugin Package
+
+from .PluginBase import PluginBase
+from .FlwBasePlugin import FlwBasePlugin
 from .PluginLoader import PluginLoader
 from .PluginManager import PluginManager
 from .PluginModels import (
-    SearchResult,
     Episode,
-    SeriesInfo,
+    MainPageResult,
     MovieInfo,
+    SearchResult,
+    SeriesInfo,
     Subtitle,
-    MainPageResult
 )
 
 __all__ = [
-    'PluginLoader', 'PluginManager',
-    'SearchResult', 'Episode', 'SeriesInfo', 'MovieInfo',
-    'Subtitle',
-    'MainPageResult'
+    "PluginBase",
+    "FlwBasePlugin",
+    "PluginLoader",
+    "PluginManager",
+    "Episode",
+    "MainPageResult",
+    "MovieInfo",
+    "SearchResult",
+    "SeriesInfo",
+    "Subtitle",
 ]
