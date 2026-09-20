@@ -1,6 +1,7 @@
 
 import os
 import subprocess
+import tempfile
 
 from Core.Helpers import konsol, is_debug, debug_log
 from Core.Extractor.ExtractorModels import ExtractResult
@@ -177,14 +178,22 @@ end)
                 mpv_command.append("--slang=tr,tur,Turkish,en,eng,English")
 
             mpv_command.append(extract_data.url)
+
+            print(f"MPV komutu: {' '.join(mpv_command)}")
             
             debug_log(f"Çalıştırılan MPV komutu: {' '.join(mpv_command)}")
 
-            with open(os.devnull, "w") as devnull:
-                subprocess.run(mpv_command, stdout=devnull, stderr=devnull, check=True)
-        except subprocess.CalledProcessError as hata:
-            konsol.print(f"[red]mpv oynatma hatası: {hata}[/red]")
-            konsol.print({"title": self.title, "url": extract_data.url, "headers": self.headers})
+            with tempfile.TemporaryFile(mode="w+", encoding="utf-8", errors="ignore") as err_file:
+                with open(os.devnull, "w") as devnull:
+                    try:
+                        subprocess.run(mpv_command, stdout=devnull, stderr=err_file, check=True)
+                    except subprocess.CalledProcessError as hata:
+                        err_file.seek(0)
+                        err_output = err_file.read().strip()
+                        konsol.print(f"[red]mpv oynatma hatası: {hata}[/red]")
+                        if err_output:
+                            konsol.print(f"[yellow]mpv hata detayı:\n{err_output}[/yellow]")
+                        konsol.print({"title": self.title, "url": extract_data.url, "headers": self.headers})
         except FileNotFoundError:
             konsol.print("[red]mpv bulunamadı! mpv kurulu olduğundan emin olun.[/red]")
             konsol.print({"title": self.title, "url": extract_data.url, "headers": self.headers})
