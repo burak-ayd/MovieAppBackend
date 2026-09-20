@@ -2,7 +2,9 @@ import base64
 import json
 import random
 import re
+import shutil
 import string
+import subprocess
 import urllib.parse
 from typing import Any, Dict, List, Optional
 
@@ -190,7 +192,198 @@ def extract_close_keys(unpacked_code: str, fn_name: str) -> tuple[Optional[str],
     assigns = re.findall(r'''var\s+\w+\s*=\s*["']([^"']+)["']''', body)
     if len(assigns) < 2:
         return None, None
-    return assigns[0], assigns[1]
+def decode_close_v2(parts: list[str]) -> str:
+    """hdfilmcehennemi.mobi yeni nesil (v2) closeplayer obfuscasyonunu çözer.
+    Dinamik delimiter ile ayrılmış parçalardan anahtarları çıkarır, ters Caesar/atob/reverse
+    ve Fisher-Yates karıştırmasını geri alıp XOR ile gerçek akış URL'sini üretir.
+    """
+    parts = list(parts)
+    yq0i = len(parts) - 2
+    if yq0i < 13:
+        return ""
+    u3b75 = yq0i % 7
+    d0ce = 8 + (yq0i % 5)
+
+    g5se = parts.pop(d0ce)
+    p0fp = parts.pop(u3b75)
+    c3u = "".join(parts)
+
+    if len(p0fp) > 4096:
+        c3u = base64.b64decode(c3u).decode("latin-1")
+
+    n5a9q = 0
+    ub7o0 = 0
+    for f03rn, ch in enumerate(p0fp):
+        t6qe = ord(ch)
+        n5a9q = (n5a9q * 37 + t6qe) % 241
+        ub7o0 = (ub7o0 + ((t6qe << 1) ^ f03rn)) & 255
+
+    t7zf2 = (n5a9q * 3 + ub7o0) % 256
+    bt00 = (ub7o0 % 11) + 5
+    b0uy = ((ub7o0 * 251 + n5a9q) % 65519) + 1
+
+    for kk2 in reversed(g5se):
+        if kk2 == '7':
+            c3u = base64.b64decode(c3u).decode("latin-1")
+        elif kk2 == '3':
+            c3u = c3u[::-1]
+        else:
+            rv6 = (26 - ((ord(kk2) - 96) % 26)) % 26
+            def shift_char(m):
+                ch = m.group(0)
+                o = ord(ch)
+                base = 65 if o <= 90 else 97
+                return chr((o - base + rv6) % 26 + base)
+            c3u = re.sub(r'[a-zA-Z]', shift_char, c3u)
+
+    if len(g5se) > 2048:
+        c3u = c3u[::-1]
+
+    yq0i = len(c3u)
+    ask84 = [0] * yq0i
+    for f03rn in range(yq0i - 1, 0, -1):
+        b0uy = (b0uy * 97 + 41) % 65519
+        ask84[f03rn] = b0uy % (f03rn + 1)
+
+    chars = list(c3u)
+    for f03rn in range(1, yq0i):
+        v97 = ask84[f03rn]
+        chars[f03rn], chars[v97] = chars[v97], chars[f03rn]
+    c3u = "".join(chars)
+
+    e0bt = t7zf2
+    out = []
+    for ch in c3u:
+        t6qe = ord(ch)
+        e0bt = (e0bt * 5 + bt00) % 256
+        out.append(chr(t6qe ^ e0bt))
+        e0bt = (e0bt + t6qe) % 256
+    return "".join(out)
+
+
+def resolve_player_stream(html_content: str, unpacked_code: str = "") -> Optional[str]:
+    """Close (hdfilmcehennemi.mobi) ve Rapidrame (rplayer / playerr) sayfalarındaki
+    gerçek akış URL'sini çıkarır.
+    Sayfadaki decoy/honeypot (filmakinesimp4) değişkenlerini eler, JWPlayer veya
+    configs içindeki asıl değişkeni unpacked JS kodunu da kapsayarak çözümler.
+    """
+    def is_valid_stream_url(url: Optional[str]) -> bool:
+        if not url or not isinstance(url, str):
+            return False
+        if "filmakinesimp4" in url:
+            return False
+        return url.startswith("http") and any(ext in url for ext in [".m3u8", "master", ".txt", ".mp4"])
+
+    # 1. Sayfadaki tüm Dean Edwards packer (eval) bloklarını aç ve birleştir
+    unpacked_blocks = []
+    if unpacked_code and unpacked_code != html_content:
+        unpacked_blocks.append(unpacked_code)
+
+    for line in html_content.splitlines():
+        if "eval(function(p,a,c,k,e" in line:
+            try:
+                unpacked_blocks.append(JsUnpacker.unpack(line))
+            except Exception:
+                pass
+
+    combined_code = html_content + "\n" + "\n".join(unpacked_blocks)
+
+    # 2. Yorum satırlarını temizle (örn. //sources: [{file:atob(file_link)}])
+    clean_code = re.sub(r'//.*$', '', combined_code, flags=re.MULTILINE)
+
+    # 3. JWPlayer / configs sources içindeki asıl değişkeni veya dosya URL'sini bul
+    target_var = None
+    jw_match = re.search(r'sources\s*:\s*\[\s*\{\s*file\s*:\s*([^,}]+)', clean_code)
+    if not jw_match:
+        jw_match = re.search(r'file\s*:\s*([^,}]+)\s*,\s*type\s*:\s*["\']hls["\']', clean_code)
+
+    if jw_match:
+        raw_val = jw_match.group(1).strip()
+        # Doğrudan string URL ise (örn. file: "https://...")
+        if (raw_val.startswith('"') and raw_val.endswith('"')) or (raw_val.startswith("'") and raw_val.endswith("'")):
+            clean_url = raw_val[1:-1]
+            if is_valid_stream_url(clean_url):
+                return clean_url
+        target_var = raw_val
+
+    # Hedef değişken biliniyorsa combined_code içinde atamasını ara
+    candidate_assignments = []
+    if target_var:
+        m = re.search(
+            rf'var\s+{re.escape(target_var)}\s*=\s*([a-zA-Z0-9_$]+)\s*\(\s*(.*?)\s*\)\s*;',
+            combined_code,
+            re.DOTALL
+        )
+        if m:
+            candidate_assignments.append((target_var, m.group(1), m.group(2).strip()))
+
+    # Eğer jwplayer'dan bulunamadıysa, sayfadaki olası atamaları tara
+    if not candidate_assignments:
+        for m in re.finditer(r'var\s+([a-zA-Z0-9_$]+)\s*=\s*([a-zA-Z0-9_$]+)\s*\(\s*(["\'].*?["\']\s*\.\s*split\s*\([^)]+\))\s*\)\s*;', combined_code):
+            candidate_assignments.append((m.group(1), m.group(2), m.group(3).strip()))
+
+    # Aday atamaları çözmeyi dene
+    for var_name, fn_name, arg_expr in candidate_assignments:
+        parts = None
+        split_match = re.search(r'^["\'](.*?)["\']\s*\.\s*split\s*\(\s*["\'](.*?)["\']\s*\)$', arg_expr, re.DOTALL)
+        if split_match:
+            raw_str = split_match.group(1)
+            sep = split_match.group(2)
+            parts = raw_str.split(sep)
+        elif arg_expr.startswith("[") and arg_expr.endswith("]"):
+            try:
+                parts = json.loads(arg_expr)
+            except Exception:
+                parts = re.findall(r'["\'](.*?)["\']', arg_expr)
+
+        if parts:
+            # Önce yeni v2 decoder ile dene
+            try:
+                decoded = decode_close_v2(parts)
+                if is_valid_stream_url(decoded):
+                    debug_log(f"[DEBUG Rapidrame] Player v2 decoder OK: var={var_name} fn={fn_name} url={decoded[:80]}")
+                    return decoded
+            except Exception as e:
+                debug_log(f"[DEBUG Rapidrame] Player v2 decoder exception: {e}")
+
+            # Eski v1 decoder ile dene (key1/key2)
+            key1, key2 = extract_close_keys(combined_code, fn_name)
+            if key1 and key2:
+                try:
+                    decoded = decode_close_obfuscation(parts, key1, key2)
+                    if is_valid_stream_url(decoded):
+                        debug_log(f"[DEBUG Rapidrame] Player v1 decoder OK: var={var_name} fn={fn_name} url={decoded[:80]}")
+                        return decoded
+                except Exception as e:
+                    debug_log(f"[DEBUG Rapidrame] Player v1 decoder exception: {e}")
+
+        # Node.js fallback
+        if shutil.which("node"):
+            try:
+                fn_def_match = re.search(
+                    rf'(?:var\s+{re.escape(fn_name)}\s*=\s*function\s*\([^)]*\)\s*\{{.*?\}}|function\s+{re.escape(fn_name)}\s*\([^)]*\)\s*\{{.*?\n\}})',
+                    combined_code,
+                    re.DOTALL
+                )
+                if fn_def_match:
+                    fn_def = fn_def_match.group(0)
+                    js_code = f"""
+                    {fn_def}
+                    var result = {fn_name}({arg_expr});
+                    console.log(result);
+                    """
+                    proc = subprocess.run(["node", "-e", js_code], capture_output=True, text=True, timeout=5)
+                    output = proc.stdout.strip()
+                    if is_valid_stream_url(output):
+                        debug_log(f"[DEBUG Rapidrame] Player Node.js decoder OK: var={var_name} fn={fn_name} url={output[:80]}")
+                        return output
+            except Exception as e:
+                debug_log(f"[DEBUG Rapidrame] Player Node.js exception: {e}")
+
+    return None
+
+
+resolve_close_player = resolve_player_stream
 
 
 class RapidrameExtractor(ExtractorBase):
@@ -415,79 +608,42 @@ class RapidrameExtractor(ExtractorBase):
             # 3. Aşama: Akış (.m3u8 veya doğrudan video) linkini ayıkla
             stream_url = None
 
-            # Metot 0: Close (hdfilmcehennemi.mobi) obfuscasyon çözümleyici
-            # html_content üzerinde arama yapılır; unpacked_code sadece eval-block içindeki
-            # kod için (dc_ pipeline), Close gibi başka script bloklarında gizlenen obfuscation'ı
-            # kaçırmamak için tüm HTML'i taramak gerekiyor.
-            fn_name, parts_str, var_name = find_close_decoder(html_content)
-            if not fn_name:
-                debug_log(f"[DEBUG {self.name}] Metot 0: call site bulunamadı")
-                matches = list(re.finditer(r'var\s+\w+\s*=\s*\w+\s*\(\s*\[', unpacked_code))
-                debug_log(f"[DEBUG {self.name}] var=X=Y([ pattern sayısı: {len(matches)}")
-                # Tüm "var X = Y" atamalarını yaz (çağrı yerleri farklı biçimde olabilir)
-                all_vars = list(re.finditer(r'var\s+(\w+)\s*=\s*(\w+)', unpacked_code))
-                debug_log(f"[DEBUG {self.name}] toplam var ataması: {len(all_vars)}")
-                for m in all_vars[:10]:
-                    debug_log(f"[DEBUG {self.name}]   var {m.group(1)} = {m.group(2)}...")
-                # Sayfada herhangi bir master.txt/master.m3u8 URL var mı?
-                urls = re.findall(r'https?://[^\s\'"<>]+\.(?:m3u8|txt)', unpacked_code)
-                debug_log(f"[DEBUG {self.name}] master URL'leri: {urls[:3]}")
-                # Hash rate / contentUrl gibi JSON-LD URL'leri
-                ld_urls = re.findall(r'"contentUrl"\s*:\s*"([^"]+)"', unpacked_code)
-                debug_log(f"[DEBUG {self.name}] JSON-LD contentUrl: {ld_urls[:2]}")
-                # Sayfayı diske kaydet debug için
-                if is_debug():
-                    try:
-                        import os
-                        os.makedirs(r"D:\Projeler\MovieAppNew\debug_dumps", exist_ok=True)
-                        with open(rf"D:\Projeler\MovieAppNew\debug_dumps\close_{int(__import__('time').time())}.html", "w", encoding="utf-8") as f:
-                            f.write(html_content)
-                        debug_log(f"[DEBUG {self.name}] html kaydedildi")
-                    except Exception as e:
-                        debug_log(f"[DEBUG {self.name}] kaydetme hatası: {e}")
-            debug_log(f"[DEBUG {self.name}] Metot 0: fn={fn_name} var={var_name} has_parts={parts_str is not None}")
-            if fn_name and parts_str:
+            # Metot 0: Close ve Rapidrame obfuscasyon çözümleyici (v2 ve v1)
+            stream_url = resolve_player_stream(html_content, unpacked_code)
+            if stream_url:
+                debug_log(f"[DEBUG {self.name}] Metot 0 akış başarıyla çözüldü: {stream_url[:80]}")
+            elif is_debug():
                 try:
-                    parts = json.loads(parts_str)
-                except Exception:
-                    try:
-                        import ast
-                        parts = ast.literal_eval(parts_str)
-                    except Exception as e:
-                        debug_log(f"[DEBUG {self.name}] parse parts başarısız: {e}")
-                        parts = re.findall(r'["\']([a-zA-Z0-9+/=]+)["\']', parts_str)
-                key1, key2 = extract_close_keys(html_content, fn_name)
-                debug_log(f"[DEBUG {self.name}] extract_close_keys: key1={key1!r} key2={key2!r}")
-                if key1 and key2:
-                    try:
-                        stream_url = decode_close_obfuscation(parts, key1, key2)
-                        debug_log(f"[DEBUG {self.name}] close decoder OK: var={var_name} fn={fn_name} url={stream_url[:80]}")
-                    except Exception as e:
-                        debug_log(f"[!] {self.name} close decoder hatası: {e}")
-                else:
-                    debug_log(f"[DEBUG {self.name}] close decoder anahtarları bulunamadı (fn={fn_name})")
+                    import os
+                    os.makedirs(r"D:\Projeler\MovieAppNew\debug_dumps", exist_ok=True)
+                    with open(rf"D:\Projeler\MovieAppNew\debug_dumps\close_{int(__import__('time').time())}.html", "w", encoding="utf-8") as f:
+                        f.write(html_content)
+                    debug_log(f"[DEBUG {self.name}] close html kaydedildi")
+                except Exception as e:
+                    debug_log(f"[DEBUG {self.name}] kaydetme hatası: {e}")
 
             # Metot A: Dinamik dc_ pipeline çözümleyici (playerr / rplayer)
-            dc_func_match = re.search(r'function\s+(dc_[a-zA-Z0-9_]+)\s*\(', unpacked_code)
-            if dc_func_match:
-                func_name = dc_func_match.group(1)
-                call_match = re.search(func_name + r'\s*\(\s*(\[.*?\])\s*\)', unpacked_code, re.DOTALL)
-                if call_match:
-                    try:
-                        parts = json.loads(call_match.group(1))
-                    except Exception:
-                        parts = re.findall(r'["\']([a-zA-Z0-9+/=]+)["\']', call_match.group(1))
-
-                    func_code_match = re.search(
-                        r'(function\s+' + func_name + r'\(.*?return\s+unmix\s*\}?)',
-                        unpacked_code,
-                        re.DOTALL,
-                    )
-                    if func_code_match:
+            if not stream_url:
+                dc_func_match = re.search(r'function\s+(dc_[a-zA-Z0-9_]+)\s*\(', unpacked_code)
+                if dc_func_match:
+                    func_name = dc_func_match.group(1)
+                    call_match = re.search(func_name + r'\s*\(\s*(\[.*?\])\s*\)', unpacked_code, re.DOTALL)
+                    if call_match:
                         try:
-                            stream_url = execute_dc_pipeline(func_code_match.group(1), parts)
-                        except Exception as e:
-                            print(f"[!] {self.name} dc_ pipeline çalıştırma hatası: {e}")
+                            parts = json.loads(call_match.group(1))
+                        except Exception:
+                            parts = re.findall(r'["\']([a-zA-Z0-9+/=]+)["\']', call_match.group(1))
+
+                        func_code_match = re.search(
+                            r'(function\s+' + func_name + r'\(.*?return\s+unmix\s*\}?)',
+                            unpacked_code,
+                            re.DOTALL,
+                        )
+                        if func_code_match:
+                            try:
+                                stream_url = execute_dc_pipeline(func_code_match.group(1), parts)
+                            except Exception as e:
+                                print(f"[!] {self.name} dc_ pipeline çalıştırma hatası: {e}")
 
             # Metot B: file: "..." veya source: "..."
             if not stream_url:
@@ -552,7 +708,10 @@ class RapidrameExtractor(ExtractorBase):
                         if t.get("kind") in ["captions", "subtitles"] and t.get("file"):
                             sub_path = t.get("file").replace(r"\/", "/").replace("\\", "")
                             if sub_path.startswith("/"):
-                                sub_url = f"https://www.hdfilmcehennemi.nl{sub_path}"
+                                if is_close:
+                                    sub_url = f"https://hdfilmcehennemi.mobi{sub_path}"
+                                else:
+                                    sub_url = f"https://rapidrame.com{sub_path}"
                             else:
                                 sub_url = sub_path
                             subtitles.append(
