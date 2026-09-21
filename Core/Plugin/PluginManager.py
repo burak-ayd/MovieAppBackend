@@ -15,8 +15,15 @@ class PluginManager:
         return sorted(list(self.plugins.keys()))
 
     def select_plugin(self, plugin_name):
-        # Verilen eklenti adını kullanarak eklentiyi seç
-        return self.plugins.get(plugin_name)
+        if not plugin_name:
+            return None
+        if plugin_name in self.plugins:
+            return self.plugins[plugin_name]
+        lower_name = plugin_name.lower()
+        for k, v in self.plugins.items():
+            if k.lower() == lower_name or getattr(v, "name", "").lower() == lower_name:
+                return v
+        return None
 
     async def close_plugins(self):
         # Tüm eklentileri kapat

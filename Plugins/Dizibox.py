@@ -61,6 +61,8 @@ class DiziBox(PluginBase):
 }
 
     async def get_main_page(self, page: int=1, url: str="", category: str="") -> list[MainPageResult]:
+        if not url:
+            url = f"{self.main_url}/"
         istek = await self.httpx.get(
             url              = f"{url}",
             follow_redirects = True,

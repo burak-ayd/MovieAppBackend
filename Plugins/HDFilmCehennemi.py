@@ -80,7 +80,7 @@ class HDFilmCehennemi(PluginBase):
                 category=category,
                 title=veri.css("strong.poster-title::text").get(),
                 url=self.fix_url(veri.css("::attr(href)").get()),
-                poster=self.fix_url(veri.css("img::attr(data-src)").get()),
+                poster=self.fix_url(veri.css("img::attr(data-src)").get() or veri.css("img::attr(src)").get()),
                 language=veri.css("div.poster-info > span.poster-lang > span::text").get().strip() if veri.css("div.poster-info > span.poster-lang > span::text").get() else None,
                 release_date=veri.css("div.poster-meta > span::text").get().strip() if veri.css("div.poster-meta > span::text").get() else None,
                 imdb=veri.css("div.poster-meta > span.imdb::text").get().strip() if veri.css("div.poster-meta > span.imdb::text").get() else None,
@@ -137,7 +137,7 @@ class HDFilmCehennemi(PluginBase):
             else:
                 original_title = title
 
-            poster = secici.css("aside.post-info-poster img.lazyload::attr(data-src)").get().strip()
+            poster = (secici.css("aside.post-info-poster img::attr(data-src)").get() or secici.css("aside.post-info-poster img::attr(src)").get() or "").strip()
             description = secici.css("article.post-info-content > p::text").get().strip()
             genre = secici.css("div.post-info-genres a::text").getall()
             rating = secici.css("div.post-info-imdb-rating span::text").get().strip()
