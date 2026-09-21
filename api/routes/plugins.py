@@ -1,0 +1,229 @@
+"""
+Plugin (eklenti) ile ilgili API endpoint'leri.
+
+Endpoint'ler:
+  GET  /api/plugins                          → Tüm eklentileri listele
+  GET  /api/plugins/{name}                   → Tek bir eklentinin detay bilgisi
+  GET  /api/plugins/{name}/main-page         → Eklentinin ana sayfa içerikleri
+  GET  /api/plugins/{name}/categories        → Eklentinin mevcut kategorileri
+  GET  /api/plugins/{name}/search?q=...      → Tek eklentide arama
+  GET  /api/plugins/{name}/detail?url=...    → İçerik detayı (film / dizi)
+  GET  /api/plugins/{name}/links?url=...     → İzleme bağlantıları
+  GET  /api/search?q=...                     → Tüm eklentilerde arama
+"""
+
+from __future__ import annotations
+
+import asyncio
+from contextlib import suppress
+from typing import Any
+
+from fastapi import APIRouter, HTTPException, Query
+
+from api.deps import get_plugin_manager, get_extractor_manager
+from Core.Plugin.PluginBase import PluginBase
+from Core.Plugin.PluginModels import SeriesInfo
+
+router = APIRouter(prefix="/api", tags=["plugins"])
+
+
+# ── Yardımcı Fonksiyonlar ────────────────────────────────────────────────────
+
+
+def _get_plugin(name: str) -> PluginBase:
+    """İsme göre eklenti döndürür; bulunamazsa 404 fırlatır."""
+    pm = get_plugin_manager()
+    plugin = pm.select_plugin(name)
+    if plugin is None:
+        raise HTTPException(status_code=404, detail=f"'{name}' adında bir eklenti bulunamadı.")
+    return plugin
+
+
+def _plugin_info(plugin: PluginBase) -> dict[str, Any]:
+    """Eklenti meta verilerini sözlük olarak döndürür."""
+    return {
+        "name": plugin.name,
+        "language": plugin.language,
+        "main_url": plugin.main_url,
+        "description": plugin.description,
+        "favicon": plugin.favicon,
+        "categories": list(plugin.main_page.keys()) if plugin.main_page else [],
+    }
+
+
+def _serialize(obj: Any) -> Any:
+    """Pydantic model veya liste/dict'i JSON-uyumlu formata çevirir."""
+    if hasattr(obj, "model_dump"):
+        return obj.model_dump()
+    if isinstance(obj, list):
+        return [_serialize(item) for item in obj]
+    if isinstance(obj, dict):
+        return {k: _serialize(v) for k, v in obj.items()}
+    return obj
+
+
+# ── Endpoint'ler ──────────────────────────────────────────────────────────────
+
+
+@router.get("/plugins", summary="Tüm eklentileri listele")
+async def list_plugins():
+    """Yüklü tüm eklentilerin listesini ve temel bilgilerini döndürür."""
+    pm = get_plugin_manager()
+    plugins = []
+    for name in pm.get_plugin_names():
+        plugin = pm.select_plugin(name)
+        if plugin:
+            plugins.append(_plugin_info(plugin))
+    return {"plugins": plugins}
+
+
+@router.get("/plugins/{name}", summary="Eklenti detayı")
+async def get_plugin_detail(name: str):
+    """Belirtilen eklentinin detay bilgisini döndürür."""
+    plugin = _get_plugin(name)
+    return _plugin_info(plugin)
+
+
+@router.get("/plugins/{name}/categories", summary="Eklenti kategorileri")
+async def get_plugin_categories(name: str):
+    """Eklentinin desteklediği kategorileri listeler."""
+    plugin = _get_plugin(name)
+    categories = []
+    if plugin.main_page:
+        for category_name, url in plugin.main_page.items():
+            categories.append({"name": category_name, "url": url})
+    return {"plugin": plugin.name, "categories": categories}
+
+
+@router.get("/plugins/{name}/main-page", summary="Ana sayfa içerikleri")
+async def get_plugin_main_page(
+    name: str,
+    page: int = Query(1, ge=1, description="Sayfa numarası"),
+    url: str = Query("", description="Belirli bir kategori URL'si (boş bırakılırsa varsayılan)"),
+    category: str = Query("", description="Kategori adı"),
+):
+    """
+    Eklentinin ana sayfa / kategori içeriklerini döndürür.
+    """
+    plugin = _get_plugin(name)
+    try:
+        results = await plugin.get_main_page(page=page, url=url, category=category)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Ana sayfa yüklenirken hata: {e}")
+
+    return {
+        "plugin": plugin.name,
+        "page": page,
+        "category": category or None,
+        "results": _serialize(results) if results else [],
+    }
+
+
+@router.get("/plugins/{name}/search", summary="Eklentide arama")
+async def search_in_plugin(
+    name: str,
+    q: str = Query(..., min_length=1, description="Arama sorgusu"),
+):
+    """Belirtilen eklentide arama yapar."""
+    plugin = _get_plugin(name)
+    try:
+        results = await plugin.search(q)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Arama sırasında hata: {e}")
+
+    return {
+        "plugin": plugin.name,
+        "query": q,
+        "results": _serialize(results) if results else [],
+    }
+
+
+@router.get("/plugins/{name}/detail", summary="İçerik detayı")
+async def get_content_detail(
+    name: str,
+    url: str = Query(..., description="İçerik sayfasının URL'si"),
+):
+    """
+    Bir film veya dizinin detay bilgilerini döndürür.
+    (poster, açıklama, yıl, IMDB puanı, bölümler vs.)
+    """
+    plugin = _get_plugin(name)
+    try:
+        media_info = await plugin.load_item(url)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Detay yüklenirken hata: {e}")
+
+    if not media_info:
+        raise HTTPException(status_code=404, detail="İçerik detayı bulunamadı.")
+
+    data = _serialize(media_info)
+    data["is_series"] = isinstance(media_info, SeriesInfo)
+    return {"plugin": plugin.name, "detail": data}
+
+
+@router.get("/plugins/{name}/links", summary="İzleme bağlantıları")
+async def get_watch_links(
+    name: str,
+    url: str = Query(..., description="İçerik sayfasının URL'si"),
+):
+    """
+    Bir film/bölüm için mevcut izleme bağlantılarını döndürür.
+    Her bağlantı, hangi extractor ile eşleştiği bilgisiyle birlikte sunulur.
+    """
+    plugin = _get_plugin(name)
+    try:
+        links = await plugin.load_links(url)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Bağlantılar yüklenirken hata: {e}")
+
+    if not links:
+        return {"plugin": plugin.name, "links": []}
+
+    # Bağlantıları extractor'larla eşleştir
+    em = get_extractor_manager()
+    mapping = em.map_links_to_extractors(links)
+
+    enriched_links = []
+    for link in links:
+        extractor = em.find_extractor(link)
+        enriched_links.append({
+            "url": link,
+            "extractor": extractor.name if extractor else None,
+            "label": mapping.get(link, None),
+        })
+
+    return {"plugin": plugin.name, "links": enriched_links}
+
+
+@router.get("/search", summary="Tüm eklentilerde arama")
+async def search_all_plugins(
+    q: str = Query(..., min_length=1, description="Arama sorgusu"),
+):
+    """
+    Tüm eklentilerde aynı anda arama yapar ve sonuçları birleştirir.
+    Her sonuca hangi eklentiden geldiği bilgisi eklenir.
+    """
+    pm = get_plugin_manager()
+    plugin_names = pm.get_plugin_names()
+
+    async def _search_single(plugin_name: str):
+        plugin = pm.select_plugin(plugin_name)
+        if not plugin:
+            return []
+        with suppress(Exception):
+            results = await plugin.search(q)
+            if results:
+                items = _serialize(results)
+                for item in items:
+                    item["plugin"] = plugin_name
+                return items
+        return []
+
+    tasks = [_search_single(name) for name in plugin_names]
+    all_results = await asyncio.gather(*tasks)
+
+    merged = []
+    for result_list in all_results:
+        merged.extend(result_list)
+
+    return {"query": q, "total": len(merged), "results": merged}
