@@ -3,13 +3,16 @@ Plugin (eklenti) ile ilgili API endpoint'leri.
 
 Endpoint'ler:
   GET  /api/plugins                          → Tüm eklentileri listele
+  GET  /api/plugins/random                   → Tüm eklentilerden rastgele içerikler
   GET  /api/plugins/{name}                   → Tek bir eklentinin detay bilgisi
+  GET  /api/plugins/{name}/random            → Eklentiden rastgele içerikler
   GET  /api/plugins/{name}/main-page         → Eklentinin ana sayfa içerikleri
   GET  /api/plugins/{name}/categories        → Eklentinin mevcut kategorileri
   GET  /api/plugins/{name}/search?q=...      → Tek eklentide arama
   GET  /api/plugins/{name}/detail?url=...    → İçerik detayı (film / dizi)
   GET  /api/plugins/{name}/links?url=...     → İzleme bağlantıları
   GET  /api/search?q=...                     → Tüm eklentilerde arama
+  GET  /api/random                           → Tüm eklentilerden rastgele içerikler
 """
 
 from __future__ import annotations
@@ -75,6 +78,65 @@ async def list_plugins():
         if plugin:
             plugins.append(_plugin_info(plugin))
     return {"plugins": plugins}
+
+
+@router.get("/plugins/random", summary="Tüm eklentilerden rastgele içerikler")
+@router.get("/random", summary="Tüm eklentilerden rastgele içerikler")
+async def get_all_plugins_random(
+    count_per_plugin: int = Query(3, ge=1, le=20, description="Her eklentiden alınacak rastgele içerik sayısı"),
+):
+    """
+    Yüklü tüm eklentilerden 'count_per_plugin' (varsayılan 3) adet rastgele MainPageResult döner.
+    """
+    pm = get_plugin_manager()
+    plugin_names = pm.get_plugin_names()
+
+    async def _get_single(p_name: str):
+        p = pm.select_plugin(p_name)
+        if not p:
+            return p_name, []
+        with suppress(Exception):
+            res = await p.get_random(count=count_per_plugin)
+            return p_name, res or []
+        return p_name, []
+
+    tasks = [_get_single(name) for name in plugin_names]
+    results_pairs = await asyncio.gather(*tasks)
+
+    by_plugin = {}
+    all_items = []
+    for p_name, items in results_pairs:
+        serialized = _serialize(items)
+        by_plugin[p_name] = serialized
+        all_items.extend(serialized)
+
+    return {
+        "count_per_plugin": count_per_plugin,
+        "total": len(all_items),
+        "plugins": by_plugin,
+        "results": all_items,
+    }
+
+
+@router.get("/plugins/{name}/random", summary="Eklentiden rastgele içerikler")
+async def get_plugin_random(
+    name: str,
+    count: int = Query(3, ge=1, le=50, description="Döndürülecek rastgele içerik sayısı"),
+):
+    """
+    Belirtilen eklentiden rastgele 'count' (varsayılan 3) adet MainPageResult nesnesi döndürür.
+    """
+    plugin = _get_plugin(name)
+    try:
+        results = await plugin.get_random(count=count)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Rastgele içerik alınırken hata: {e}")
+
+    return {
+        "plugin": plugin.name,
+        "count": len(results),
+        "results": _serialize(results) if results else [],
+    }
 
 
 @router.get("/plugins/{name}", summary="Eklenti detayı")

@@ -67,6 +67,44 @@ class PluginBase(ABC):
         """İzleme sayfasındaki video oynatıcı (embed/iframe) bağlantılarını toplar."""
         pass
 
+    async def get_random(self, count: int = 3) -> List[MainPageResult]:
+        """
+        Eklentiden rastgele 'count' adet MainPageResult nesnesi seçer.
+        Varsayılan olarak ana sayfadaki (veya kategorilerdeki) içeriklerden rastgele seçer.
+        """
+        import random
+
+        raw_results = await self.get_main_page(page=1)
+        items: List[MainPageResult] = []
+
+        if isinstance(raw_results, dict):
+            for v in raw_results.values():
+                if isinstance(v, list):
+                    items.extend([item for item in v if isinstance(item, MainPageResult)])
+        elif isinstance(raw_results, list):
+            items = [item for item in raw_results if isinstance(item, MainPageResult)]
+
+        # Eğer ana sayfadan yeterli veri gelmediyse ve kategoriler tanımlıysa rastgele bir kategori dene
+        if len(items) < count and self.main_page:
+            rand_cat = random.choice(list(self.main_page.keys()))
+            cat_url = self.main_page[rand_cat]
+            try:
+                cat_results = await self.get_main_page(page=1, url=cat_url, category=rand_cat)
+                if isinstance(cat_results, list):
+                    items.extend([item for item in cat_results if isinstance(item, MainPageResult)])
+            except Exception:
+                pass
+
+        # Tekilleştirme (URL bazlı)
+        unique_items = list({item.url: item for item in items if item.url}.values())
+        if not unique_items:
+            return []
+
+        if len(unique_items) <= count:
+            return unique_items
+
+        return random.sample(unique_items, count)
+
     async def async_cf_get(self, url: str, headers: Optional[Dict[str, str]] = None) -> str:
         """Cloudflare korumalı sayfaları curl_cffi üzerinden aşar."""
         return await HTMLHelper.fetch_cf(url, headers=headers)

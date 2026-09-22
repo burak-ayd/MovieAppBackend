@@ -33,111 +33,200 @@ class DiziBox(PluginBase):
         "dbxu"          : "1722403730363"
     }
     main_page = {
-        "Yerli"         : f"{main_url}/dizi-arsivi/page/SAYFA/?ulke[]=turkiye&yil=&imdb",
-        "Aile"          : f"{main_url}/dizi-arsivi/page/SAYFA/?tur[0]=aile&yil&imdb",
-        "Aksiyon"       : f"{main_url}/dizi-arsivi/page/SAYFA/?tur[0]=aksiyon&yil&imdb",
-        "Animasyon"     : f"{main_url}/dizi-arsivi/page/SAYFA/?tur[0]=animasyon&yil&imdb",
-        "Belgesel"      : f"{main_url}/dizi-arsivi/page/SAYFA/?tur[0]=belgesel&yil&imdb",
-        "Bilimkurgu"    : f"{main_url}/dizi-arsivi/page/SAYFA/?tur[0]=bilimkurgu&yil&imdb",
-        "Biyografi"     : f"{main_url}/dizi-arsivi/page/SAYFA/?tur[0]=biyografi&yil&imdb",
-        "Dram"          : f"{main_url}/dizi-arsivi/page/SAYFA/?tur[0]=dram&yil&imdb",
-        "Drama"         : f"{main_url}/dizi-arsivi/page/SAYFA/?tur[0]=drama&yil&imdb",
-        "Fantastik"     : f"{main_url}/dizi-arsivi/page/SAYFA/?tur[0]=fantastik&yil&imdb",
-        "Gerilim"       : f"{main_url}/dizi-arsivi/page/SAYFA/?tur[0]=gerilim&yil&imdb",
-        "Gizem"         : f"{main_url}/dizi-arsivi/page/SAYFA/?tur[0]=gizem&yil&imdb",
-        "Komedi"        : f"{main_url}/dizi-arsivi/page/SAYFA/?tur[0]=komedi&yil&imdb",
-        "Korku"         : f"{main_url}/dizi-arsivi/page/SAYFA/?tur[0]=korku&yil&imdb",
-        "Macera"        : f"{main_url}/dizi-arsivi/page/SAYFA/?tur[0]=macera&yil&imdb",
-        "Müzik"         : f"{main_url}/dizi-arsivi/page/SAYFA/?tur[0]=muzik&yil&imdb",
-        "Müzikal"       : f"{main_url}/dizi-arsivi/page/SAYFA/?tur[0]=muzikal&yil&imdb",
-        "Reality TV"    : f"{main_url}/dizi-arsivi/page/SAYFA/?tur[0]=reality-tv&yil&imdb",
-        "Romantik"      : f"{main_url}/dizi-arsivi/page/SAYFA/?tur[0]=romantik&yil&imdb",
-        "Savaş"         : f"{main_url}/dizi-arsivi/page/SAYFA/?tur[0]=savas&yil&imdb",
-        "Spor"          : f"{main_url}/dizi-arsivi/page/SAYFA/?tur[0]=spor&yil&imdb",
-        "Suç"           : f"{main_url}/dizi-arsivi/page/SAYFA/?tur[0]=suc&yil&imdb",
-        "Tarih"         : f"{main_url}/dizi-arsivi/page/SAYFA/?tur[0]=tarih&yil&imdb",
-        "Western"       : f"{main_url}/dizi-arsivi/page/SAYFA/?tur[0]=western&yil&imdb",
-        "Yarışma"       : f"{main_url}/dizi-arsivi/page/SAYFA/?tur[0]=yarisma&yil&imdb",
+        "Son Bölümler"      : f"{main_url}/tum-bolumler/page/SAYFA/",
+        "Popüler Diziler"   : f"{main_url}/tum-bolumler/page/SAYFA/?tip=populer",
+        "Yeni Eklenenler"   : f"{main_url}/dizi-arsivi/page/SAYFA/",
+        "Yerli"             : f"{main_url}/dizi-arsivi/page/SAYFA/?ulke[]=turkiye&yil=&imdb",
+        "Aile"              : f"{main_url}/dizi-arsivi/page/SAYFA/?tur[0]=aile&yil&imdb",
+        "Aksiyon"           : f"{main_url}/dizi-arsivi/page/SAYFA/?tur[0]=aksiyon&yil&imdb",
+        "Animasyon"         : f"{main_url}/dizi-arsivi/page/SAYFA/?tur[0]=animasyon&yil&imdb",
+        "Belgesel"          : f"{main_url}/dizi-arsivi/page/SAYFA/?tur[0]=belgesel&yil&imdb",
+        "Bilimkurgu"        : f"{main_url}/dizi-arsivi/page/SAYFA/?tur[0]=bilimkurgu&yil&imdb",
+        "Biyografi"         : f"{main_url}/dizi-arsivi/page/SAYFA/?tur[0]=biyografi&yil&imdb",
+        "Dram"              : f"{main_url}/dizi-arsivi/page/SAYFA/?tur[0]=dram&yil&imdb",
+        "Drama"             : f"{main_url}/dizi-arsivi/page/SAYFA/?tur[0]=drama&yil&imdb",
+        "Fantastik"         : f"{main_url}/dizi-arsivi/page/SAYFA/?tur[0]=fantastik&yil&imdb",
+        "Gerilim"           : f"{main_url}/dizi-arsivi/page/SAYFA/?tur[0]=gerilim&yil&imdb",
+        "Gizem"             : f"{main_url}/dizi-arsivi/page/SAYFA/?tur[0]=gizem&yil&imdb",
+        "Komedi"            : f"{main_url}/dizi-arsivi/page/SAYFA/?tur[0]=komedi&yil&imdb",
+        "Korku"             : f"{main_url}/dizi-arsivi/page/SAYFA/?tur[0]=korku&yil&imdb",
+        "Macera"            : f"{main_url}/dizi-arsivi/page/SAYFA/?tur[0]=macera&yil&imdb",
+        "Müzik"             : f"{main_url}/dizi-arsivi/page/SAYFA/?tur[0]=muzik&yil&imdb",
+        "Müzikal"           : f"{main_url}/dizi-arsivi/page/SAYFA/?tur[0]=muzikal&yil&imdb",
+        "Reality TV"        : f"{main_url}/dizi-arsivi/page/SAYFA/?tur[0]=reality-tv&yil&imdb",
+        "Romantik"          : f"{main_url}/dizi-arsivi/page/SAYFA/?tur[0]=romantik&yil&imdb",
+        "Savaş"             : f"{main_url}/dizi-arsivi/page/SAYFA/?tur[0]=savas&yil&imdb",
+        "Spor"              : f"{main_url}/dizi-arsivi/page/SAYFA/?tur[0]=spor&yil&imdb",
+        "Suç"               : f"{main_url}/dizi-arsivi/page/SAYFA/?tur[0]=suc&yil&imdb",
+        "Tarih"             : f"{main_url}/dizi-arsivi/page/SAYFA/?tur[0]=tarih&yil&imdb",
+        "Western"           : f"{main_url}/dizi-arsivi/page/SAYFA/?tur[0]=western&yil&imdb",
+        "Yarışma"           : f"{main_url}/dizi-arsivi/page/SAYFA/?tur[0]=yarisma&yil&imdb",
 }
 
-    async def get_main_page(self, page: int=1, url: str="", category: str="") -> list[MainPageResult]:
+    async def get_main_page(self, page: int = 1, url: str = "", category: str = "") -> list[MainPageResult] | dict[str, list[MainPageResult]]:
+        clean_url = (url or "").strip()
+        is_home_url = not clean_url or clean_url.rstrip("/") == self.main_url.rstrip("/")
 
-        if not url == self.main_url:
-            return self.get_category_page(page, category)
+        # Eğer belirli bir kategori veya ana sayfa harici bir URL verilmişse kategori sayfasına yönlendir
+        if (clean_url and not is_home_url) or category:
+            return await self.get_category_page(page=page, category=category, url=clean_url)
 
-        if not url:
-            url = f"{self.main_url}/"
+        # Varsayılan ana sayfa
+        fetch_url = f"{self.main_url}/"
         istek = await self.httpx.get(
-            url              = f"{url}",
+            url              = fetch_url,
             follow_redirects = True,
-            timeout=30,
-            headers=self.headers,
-            cookies=self.cookies
+            timeout          = 30,
+            headers          = self.headers,
+            cookies          = self.cookies
         )
         secici = Selector(istek.text)
         
         container = secici.xpath(
             '//comment()[contains(.,"POPULAR SERIES")]/parent::*'
         )
+        sections = container.xpath('./section') if container else []
 
-        sections = container.xpath('./section')
+        popular_series = []
+        new_episodes = []
 
-        popular_series_section = sections[0]
-        new_episodes_section = sections[1]
-        
-        popular_series = [
-            MainPageResult(
-                category = category,
-                title    = veri.css("img.afis::attr(alt)").get(),
-                url      = self.fix_url(veri.css("article.article-episode-card a.figure-link::attr(href)").get()),
-                poster   = self.fix_url(veri.css("img.afis::attr(data-src)").get()),
-                release_date 	 = veri.css("div.publish-date::text").get(),
-            )
-                for veri in popular_series_section.css("article.article-episode-card")
-        ]
+        if len(sections) > 0:
+            for veri in sections[0].css("article.article-episode-card"):
+                title = veri.css("img.afis::attr(alt)").get()
+                link = veri.css("article.article-episode-card a.figure-link::attr(href)").get()
+                poster = veri.css("img.afis::attr(data-src)").get() or veri.css("img.afis::attr(src)").get()
+                pub_date = veri.css("div.publish-date::text").get()
+                popular_series.append(
+                    MainPageResult(
+                        category="Popüler Diziler",
+                        title=title.strip() if title else None,
+                        url=self.fix_url(link),
+                        poster=self.fix_url(poster),
+                        release_date=pub_date.strip() if pub_date else None,
+                        plugin=self.name,
+                    )
+                )
 
-        new_episodes = [
-            MainPageResult(
-                category = category,
-                title    = veri.css("img.afis::attr(alt)").get(),
-                url      = self.fix_url(veri.css("article.article-episode-card a.figure-link::attr(href)").get()),
-                poster   = self.fix_url(veri.css("img.afis::attr(data-src)").get()),
-                release_date 	 = veri.css("div.publish-date::text").get(),
-            )
-                for veri in new_episodes_section.css("article.article-episode-card")
-        ]
-        
+        if len(sections) > 1:
+            for veri in sections[1].css("article.article-episode-card"):
+                title = veri.css("img.afis::attr(alt)").get()
+                link = veri.css("article.article-episode-card a.figure-link::attr(href)").get()
+                poster = veri.css("img.afis::attr(data-src)").get() or veri.css("img.afis::attr(src)").get()
+                pub_date = veri.css("div.publish-date::text").get()
+                new_episodes.append(
+                    MainPageResult(
+                        category="Yeni Bölümler",
+                        title=title.strip() if title else None,
+                        url=self.fix_url(link),
+                        poster=self.fix_url(poster),
+                        release_date=pub_date.strip() if pub_date else None,
+                        plugin=self.name,
+                    )
+                )
+
         return {"popular_series": popular_series, "new_episodes": new_episodes}
 
-    async def get_category_page(self, page: int=1, category: str="") -> list[MainPageResult]:
-        if not category.startswith("http"):
-            get_category_url = self.main_page.get(category)
-        else:
-            get_category_url = category
-        
-        url = get_category_url.replace("SAYFA", str(page))
+    async def get_category_page(self, page: int = 1, category: str = "", url: str = "") -> list[MainPageResult]:
+        target_url = ""
+        if url:
+            target_url = url
+        elif category:
+            if category.startswith("http"):
+                target_url = category
+            else:
+                target_url = self.main_page.get(category, "")
 
-        istek = await self.httpx.get(
-            url              = f"{url}",
-            follow_redirects = True,
-            timeout=30,
-            headers=self.headers,
-            cookies=self.cookies
-        )
-        secici = Selector(istek.text)
-        return [
-            MainPageResult(
-                category = veri.css("span.custom-field::text").get().strip().replace('\xa0', '').replace('|', '').replace(' ', ''),
-                title    = veri.css("h3 a::text").get().strip(),
-                url      = self.fix_url(veri.css("h3 a::attr(href)").get()),
-                poster   = self.fix_url(veri.css("img::attr(src)").get()),
-                description = veri.css("div.post-summary::text").get().strip(),
-                release_date = veri.css("span.custom-field::text").re_first(r"(\d{4})"),
-                imdb = veri.css("span.label-imdb b::text").re_first(r"[\d.,]+"),
-                language = veri.css("span.custom-field").re(r"icon-globe.*?\d{4}\s*-\s*(.+?)\s*\|")[0]
+        if not target_url:
+            return []
+
+        if page == 1:
+            if "/page/SAYFA/" in target_url:
+                if "?" in target_url:
+                    base = target_url.split("/page/SAYFA/")[0]
+                    query_part = target_url.split("?", 1)[1]
+                    fetch_url = f"{base}/?{query_part}"
+                else:
+                    base = target_url.split("/page/SAYFA/")[0]
+                    fetch_url = f"{base}/"
+            elif "SAYFA" in target_url:
+                fetch_url = target_url.replace("SAYFA", "1")
+            else:
+                fetch_url = target_url
+        else:
+            if "SAYFA" in target_url:
+                fetch_url = target_url.replace("SAYFA", str(page))
+            elif "/page/" in target_url:
+                fetch_url = re.sub(r"/page/\d+/", f"/page/{page}/", target_url)
+            else:
+                fetch_url = target_url
+
+        try:
+            istek = await self.httpx.get(
+                url              = fetch_url,
+                follow_redirects = True,
+                timeout          = 30,
+                headers          = self.headers,
+                cookies          = self.cookies
             )
-                for veri in secici.css("article.detailed-article")
-        ]
+            if istek.status_code != 200:
+                return []
+
+            secici = Selector(istek.text)
+            results = []
+            for veri in secici.css("article.detailed-article, article.article-episode-card"):
+                title_tag = veri.css("h3 a")
+                if title_tag:
+                    # 1. detailed-article formatı (/dizi-arsivi/ vb.)
+                    title = title_tag.css("::text").get()
+                    item_url = title_tag.css("::attr(href)").get()
+                    desc = veri.css("div.post-summary::text").get()
+                    description = desc.strip() if desc else None
+                    cat_text = veri.css("span.custom-field::text").get()
+                    cat = cat_text.strip().replace('\xa0', '').replace('|', '').strip() if cat_text else (category or None)
+                    release_date = veri.css("span.custom-field").re_first(r"(\d{4})")
+                    imdb = veri.css("span.label-imdb b::text").re_first(r"[\d.,]+")
+                    langs = veri.css("span.custom-field").re(r"icon-globe.*?\d{4}\s*-\s*(.+?)\s*\|")
+                    language = langs[0].strip() if langs else None
+                else:
+                    # 2. article-episode-card formatı (/tum-bolumler/ vb.)
+                    title = (
+                        veri.css("a.episode-card-title::attr(title)").get()
+                        or veri.css("img.afis::attr(alt)").get()
+                        or veri.css("a.episode-card-title::text").get()
+                    )
+                    item_url = veri.css("a.episode-card-title::attr(href)").get() or veri.css("a.figure-link::attr(href)").get()
+                    description = None
+                    cat = category or None
+                    pub_date = veri.css("div.publish-date::text").get()
+                    release_date = pub_date.strip() if pub_date else None
+                    imdb = veri.css("span.label-imdb b::text").re_first(r"[\d.,]+")
+                    lang_img = veri.css("div.language img::attr(alt)").get()
+                    language = lang_img.strip() if lang_img else None
+
+                if not title or not item_url:
+                    continue
+
+                img_tag = veri.css("img")
+                poster = img_tag.css("::attr(data-src)").get() or img_tag.css("::attr(src)").get()
+
+                results.append(
+                    MainPageResult(
+                        category=cat,
+                        title=title.strip(),
+                        url=self.fix_url(item_url),
+                        poster=self.fix_url(poster),
+                        description=description,
+                        release_date=release_date,
+                        rating=imdb,
+                        language=language,
+                        plugin=self.name,
+                    )
+                )
+
+            return results
+        except Exception as e:
+            print("Hata: ", e)
+            return []
         
     async def search(self, query: str) -> list[SearchResult]:
         self.httpx.cookies.update(self.cookies)
@@ -161,6 +250,13 @@ class DiziBox(PluginBase):
     async def load_item(self, url: str) -> SeriesInfo:
         istek  = await self.httpx.get(url)
         secici = Selector(istek.text)
+
+        # Eğer bir bölüm sayfası URL'si verilmişse ana dizi sayfasına yönlendir
+        archive_link = secici.css("div#archive-box a.archive-title::attr(href)").get()
+        if archive_link:
+            url = self.fix_url(archive_link)
+            istek = await self.httpx.get(url)
+            secici = Selector(istek.text)
 
         title       = secici.css("div.tv-overview h1 a::text").get()
         poster      = self.fix_url(secici.css("div.tv-overview figure img::attr(src)").get())
