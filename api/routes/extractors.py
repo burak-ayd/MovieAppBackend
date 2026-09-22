@@ -81,20 +81,30 @@ async def _process_extract(url: str, referer: str | None = None) -> list[dict[st
                 if not raw_item.url or not isinstance(raw_item.url, str) or not raw_item.url.startswith("http"):
                     return None
 
+                # Embed URL mi yoksa direkt stream mi kontrol et
                 sub_extractor = em.find_extractor(raw_item.url)
                 if sub_extractor:
+                    # Embed URL → extractor'a gönder
                     try:
                         sub_result = await sub_extractor.extract(raw_item.url, referer=raw_item.referer or clean_url)
+                        # Plugin'den gelen headers ve referer'ı koru (extractor override etmiş olabilir)
+                        if raw_item.headers:
+                            sub_result.headers = {**sub_result.headers, **raw_item.headers}
+                        if raw_item.referer:
+                            sub_result.referer = raw_item.referer
                         return {
                             "extractor": sub_extractor.name,
                             "result": _serialize(sub_result),
                         }
-                    except Exception:
-                        pass
-                return {
-                    "extractor": raw_item.name or getattr(plugin, "name", "Plugin"),
-                    "result": _serialize(raw_item),
-                }
+                    except Exception as e:
+                        print(f"Extractor {sub_extractor.name} failed for {raw_item.url}: {e}")
+                        return None
+                else:
+                    # Direkt stream URL → olduğu gibi döndür
+                    return {
+                        "extractor": raw_item.name or getattr(plugin, "name", "Plugin"),
+                        "result": _serialize(raw_item),
+                    }
 
             # Durum B: Plugin embed / oynatıcı linki (string) döndürmüşse (örn. HDFilmCehennemi)
             if isinstance(raw_item, str):
@@ -109,7 +119,8 @@ async def _process_extract(url: str, referer: str | None = None) -> list[dict[st
                             "extractor": sub_extractor.name,
                             "result": _serialize(sub_result),
                         }
-                    except Exception:
+                    except Exception as e:
+                        print(f"Extractor {sub_extractor.name} failed for {raw_item}: {e}")
                         return None
                 else:
                     return {
@@ -126,8 +137,13 @@ async def _process_extract(url: str, referer: str | None = None) -> list[dict[st
             return None
 
         tasks = [_resolve_single_link(item) for item in raw_links]
-        resolved = await asyncio.gather(*tasks)
-        valid_results = [r for r in resolved if r is not None]
+        resolved = await asyncio.gather(*tasks, return_exceptions=True)
+        valid_results = []
+        for r in resolved:
+            if isinstance(r, Exception):
+                print(f"Task failed: {r}")
+            elif r is not None:
+                valid_results.append(r)
 
         if not valid_results:
             raise HTTPException(status_code=404, detail="İçerikten oynatılabilir medya bağlantısı çıkarılamadı.")
