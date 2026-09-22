@@ -25,6 +25,29 @@ class PluginManager:
                 return v
         return None
 
+    def find_plugin_by_url(self, url: str) -> Optional[PluginBase]:
+        """Verilen URL'nin hangi eklentiye ait olduğunu tespit eder."""
+        if not url:
+            return None
+
+        from urllib.parse import urlparse
+        target_netloc = urlparse(url).netloc.lower().replace("www.", "")
+
+        # 1. Domain / netloc eşleşmesi
+        for plugin in self.plugins.values():
+            p_netloc = urlparse(getattr(plugin, "main_url", "")).netloc.lower().replace("www.", "")
+            if p_netloc and (p_netloc in target_netloc or target_netloc in p_netloc):
+                return plugin
+
+        # 2. İsim bazlı domain kontrolü (örn. hdfilmcehennemi veya dizibox)
+        clean_target = target_netloc.replace("-", "").replace(".", "")
+        for plugin in self.plugins.values():
+            p_name = getattr(plugin, "name", "").lower().replace(" ", "").replace("_", "")
+            if p_name and p_name in clean_target:
+                return plugin
+
+        return None
+
     async def close_plugins(self):
         # Tüm eklentileri kapat
         for plugin in self.plugins.values():

@@ -1,6 +1,7 @@
 # Bu araç @keyiflerolsun tarafından | @KekikAkademi için yazılmıştır.
 
 import asyncio
+import time
 import base64
 import contextlib
 import re
@@ -37,30 +38,30 @@ class DiziBox(PluginBase):
         "Popüler Diziler"   : f"{main_url}/tum-bolumler/page/SAYFA/?tip=populer",
         "Yeni Eklenenler"   : f"{main_url}/dizi-arsivi/page/SAYFA/",
         "Yerli"             : f"{main_url}/dizi-arsivi/page/SAYFA/?ulke[]=turkiye&yil=&imdb",
-        "Aile"              : f"{main_url}/dizi-arsivi/page/SAYFA/?tur[0]=aile&yil&imdb",
+        # "Aile"              : f"{main_url}/dizi-arsivi/page/SAYFA/?tur[0]=aile&yil&imdb",
         "Aksiyon"           : f"{main_url}/dizi-arsivi/page/SAYFA/?tur[0]=aksiyon&yil&imdb",
-        "Animasyon"         : f"{main_url}/dizi-arsivi/page/SAYFA/?tur[0]=animasyon&yil&imdb",
-        "Belgesel"          : f"{main_url}/dizi-arsivi/page/SAYFA/?tur[0]=belgesel&yil&imdb",
+        # "Animasyon"         : f"{main_url}/dizi-arsivi/page/SAYFA/?tur[0]=animasyon&yil&imdb",
+        # "Belgesel"          : f"{main_url}/dizi-arsivi/page/SAYFA/?tur[0]=belgesel&yil&imdb",
         "Bilimkurgu"        : f"{main_url}/dizi-arsivi/page/SAYFA/?tur[0]=bilimkurgu&yil&imdb",
-        "Biyografi"         : f"{main_url}/dizi-arsivi/page/SAYFA/?tur[0]=biyografi&yil&imdb",
+        # "Biyografi"         : f"{main_url}/dizi-arsivi/page/SAYFA/?tur[0]=biyografi&yil&imdb",
         "Dram"              : f"{main_url}/dizi-arsivi/page/SAYFA/?tur[0]=dram&yil&imdb",
-        "Drama"             : f"{main_url}/dizi-arsivi/page/SAYFA/?tur[0]=drama&yil&imdb",
+        # "Drama"             : f"{main_url}/dizi-arsivi/page/SAYFA/?tur[0]=drama&yil&imdb",
         "Fantastik"         : f"{main_url}/dizi-arsivi/page/SAYFA/?tur[0]=fantastik&yil&imdb",
         "Gerilim"           : f"{main_url}/dizi-arsivi/page/SAYFA/?tur[0]=gerilim&yil&imdb",
-        "Gizem"             : f"{main_url}/dizi-arsivi/page/SAYFA/?tur[0]=gizem&yil&imdb",
+        # "Gizem"             : f"{main_url}/dizi-arsivi/page/SAYFA/?tur[0]=gizem&yil&imdb",
         "Komedi"            : f"{main_url}/dizi-arsivi/page/SAYFA/?tur[0]=komedi&yil&imdb",
-        "Korku"             : f"{main_url}/dizi-arsivi/page/SAYFA/?tur[0]=korku&yil&imdb",
-        "Macera"            : f"{main_url}/dizi-arsivi/page/SAYFA/?tur[0]=macera&yil&imdb",
-        "Müzik"             : f"{main_url}/dizi-arsivi/page/SAYFA/?tur[0]=muzik&yil&imdb",
-        "Müzikal"           : f"{main_url}/dizi-arsivi/page/SAYFA/?tur[0]=muzikal&yil&imdb",
-        "Reality TV"        : f"{main_url}/dizi-arsivi/page/SAYFA/?tur[0]=reality-tv&yil&imdb",
+        # "Korku"             : f"{main_url}/dizi-arsivi/page/SAYFA/?tur[0]=korku&yil&imdb",
+        # "Macera"            : f"{main_url}/dizi-arsivi/page/SAYFA/?tur[0]=macera&yil&imdb",
+        # "Müzik"             : f"{main_url}/dizi-arsivi/page/SAYFA/?tur[0]=muzik&yil&imdb",
+        # "Müzikal"           : f"{main_url}/dizi-arsivi/page/SAYFA/?tur[0]=muzikal&yil&imdb",
+        # "Reality TV"        : f"{main_url}/dizi-arsivi/page/SAYFA/?tur[0]=reality-tv&yil&imdb",
         "Romantik"          : f"{main_url}/dizi-arsivi/page/SAYFA/?tur[0]=romantik&yil&imdb",
-        "Savaş"             : f"{main_url}/dizi-arsivi/page/SAYFA/?tur[0]=savas&yil&imdb",
-        "Spor"              : f"{main_url}/dizi-arsivi/page/SAYFA/?tur[0]=spor&yil&imdb",
-        "Suç"               : f"{main_url}/dizi-arsivi/page/SAYFA/?tur[0]=suc&yil&imdb",
-        "Tarih"             : f"{main_url}/dizi-arsivi/page/SAYFA/?tur[0]=tarih&yil&imdb",
-        "Western"           : f"{main_url}/dizi-arsivi/page/SAYFA/?tur[0]=western&yil&imdb",
-        "Yarışma"           : f"{main_url}/dizi-arsivi/page/SAYFA/?tur[0]=yarisma&yil&imdb",
+        # "Savaş"             : f"{main_url}/dizi-arsivi/page/SAYFA/?tur[0]=savas&yil&imdb",
+        # "Spor"              : f"{main_url}/dizi-arsivi/page/SAYFA/?tur[0]=spor&yil&imdb",
+        # "Suç"               : f"{main_url}/dizi-arsivi/page/SAYFA/?tur[0]=suc&yil&imdb",
+        # "Tarih"             : f"{main_url}/dizi-arsivi/page/SAYFA/?tur[0]=tarih&yil&imdb",
+        # "Western"           : f"{main_url}/dizi-arsivi/page/SAYFA/?tur[0]=western&yil&imdb",
+        # "Yarışma"           : f"{main_url}/dizi-arsivi/page/SAYFA/?tur[0]=yarisma&yil&imdb",
 }
 
     async def get_main_page(self, page: int = 1, url: str = "", category: str = "") -> list[MainPageResult] | dict[str, list[MainPageResult]]:
@@ -227,6 +228,63 @@ class DiziBox(PluginBase):
         except Exception as e:
             print("Hata: ", e)
             return []
+
+    async def get_random(self, count: int = 3) -> list[MainPageResult]:
+        """
+        DiziBox için rastgele DİZİ (bölüm değil, dizinin kendisi) seçer.
+        Diziler '/dizi-arsivi/' altında yer alır.
+        """
+        import random
+
+        # /dizi-arsivi/ içeren kategorileri filtrele (tüm türler ve yeni eklenenler)
+        series_categories = [
+            (cat, url) for cat, url in self.main_page.items()
+            if "/dizi-arsivi/" in url
+        ]
+
+        if not series_categories:
+            series_categories = [("Yeni Eklenenler", f"{self.main_url}/dizi-arsivi/page/SAYFA/")]
+
+        random.shuffle(series_categories)
+        items: list[MainPageResult] = []
+
+        # Rastgele kategorilerden dizi çek
+        for cat_name, cat_url in series_categories[:3]:
+            random_page = random.randint(1, 3)
+            try:
+                page_items = await self.get_category_page(page=random_page, url=cat_url, category=cat_name)
+                # Sadece gerçek dizi sayfalarını al (/diziler/ içerenler)
+                series_items = [
+                    it for it in page_items
+                    if it.url and "/diziler/" in it.url
+                ]
+                items.extend(series_items)
+                if len(items) >= count * 2:
+                    break
+            except Exception:
+                continue
+
+        # Yedek: Eğer yeterli sonuç gelmediyse 1. sayfadan garanti çek
+        if len(items) < count:
+            try:
+                fallback_items = await self.get_category_page(
+                    page=1,
+                    url=f"{self.main_url}/dizi-arsivi/page/SAYFA/",
+                    category="Yeni Eklenenler"
+                )
+                items.extend([it for it in fallback_items if it.url and "/diziler/" in it.url])
+            except Exception:
+                pass
+
+        # Tekilleştir
+        unique_items = list({it.url: it for it in items if it.url}.values())
+        if not unique_items:
+            return []
+
+        if len(unique_items) <= count:
+            return unique_items
+
+        return random.sample(unique_items, count)
         
     async def search(self, query: str) -> list[SearchResult]:
         self.httpx.cookies.update(self.cookies)
@@ -247,16 +305,45 @@ class DiziBox(PluginBase):
         ]
 
 
-    async def load_item(self, url: str) -> SeriesInfo:
-        istek  = await self.httpx.get(url)
-        secici = Selector(istek.text)
+    # İçerik detayları için bellek içi önbellek (URL -> (timestamp, SeriesInfo))
+    _detail_cache: dict[str, tuple[float, SeriesInfo]] = {}
 
-        # Eğer bir bölüm sayfası URL'si verilmişse ana dizi sayfasına yönlendir
-        archive_link = secici.css("div#archive-box a.archive-title::attr(href)").get()
-        if archive_link:
-            url = self.fix_url(archive_link)
+    async def load_item(self, url: str) -> SeriesInfo:
+        now = time.time()
+        # Eğer URL daha önce önbelleğe alınmışsa (15 dakika geçerli)
+        if url in self._detail_cache:
+            c_time, c_data = self._detail_cache[url]
+            if now - c_time < 900:
+                return c_data
+
+        target_url = url
+        # Eğer bir bölüm sayfası URL'si verilmişse direkt regex ile ana dizi sayfasına dönüştür (1 HTTP isteği tasarrufu)
+        m = re.search(r"/([a-z0-9-]+?)-\d+-sezon-\d+-bolum", url)
+        if m:
+            potential_series_url = f"{self.main_url}/diziler/{m.group(1)}/"
+            if potential_series_url in self._detail_cache:
+                c_time, c_data = self._detail_cache[potential_series_url]
+                if now - c_time < 900:
+                    return c_data
+            target_url = potential_series_url
+
+        try:
+            istek = await self.httpx.get(target_url)
+            if istek.status_code == 200:
+                secici = Selector(istek.text)
+                url = target_url
+            else:
+                raise ValueError("Ana dizi URL doğrudan açılamadı")
+        except Exception:
             istek = await self.httpx.get(url)
             secici = Selector(istek.text)
+
+            # Eğer bir bölüm sayfası açılmışsa ve archive_link varsa
+            archive_link = secici.css("div#archive-box a.archive-title::attr(href)").get()
+            if archive_link:
+                url = self.fix_url(archive_link)
+                istek = await self.httpx.get(url)
+                secici = Selector(istek.text)
 
         title       = secici.css("div.tv-overview h1 a::text").get()
         poster      = self.fix_url(secici.css("div.tv-overview figure img::attr(src)").get())
@@ -266,29 +353,54 @@ class DiziBox(PluginBase):
         rating      = secici.css("span.label-imdb b::text").re_first(r"[\d.,]+")
         actors      = [actor.css("::text").get() for actor in secici.css("a[href*='/oyuncu/']")]
 
-        episodes = []
-        for sezon_link in secici.css("div#seasons-list a::attr(href)").getall():
-            sezon_url    = self.fix_url(sezon_link)
-            sezon_istek  = await self.httpx.get(sezon_url)
-            sezon_secici = Selector(sezon_istek.text)
+        sezon_links = secici.css("div#seasons-list a::attr(href)").getall()
 
-            for bolum in sezon_secici.css("article.grid-box"):
-                ep_secici  = bolum.css("div.post-title a::text")
+        # Tüm sezonları paralel (asyncio.gather) olarak hızlıca çek
+        async def fetch_single_season(sezon_link):
+            sezon_url = self.fix_url(sezon_link)
+            if not sezon_url or not sezon_url.startswith("http"):
+                return []
+            try:
+                sezon_istek = await self.httpx.get(sezon_url)
+                if sezon_istek.status_code != 200:
+                    return []
+                sezon_secici = Selector(sezon_istek.text)
+                ep_list = []
+                for bolum in sezon_secici.css("article.grid-box"):
+                    ep_secici  = bolum.css("div.post-title a::text")
+                    ep_title   = ep_secici.get()
+                    ep_href    = self.fix_url(bolum.css("div.post-title a::attr(href)").get())
+                    ep_season  = ep_secici.re_first(r"(\d+)\. ?Sezon")
+                    ep_episode = ep_secici.re_first(r"(\d+)\. ?Bölüm")
 
-                ep_title   = ep_secici.get()
-                ep_href    = self.fix_url(bolum.css("div.post-title a::attr(href)").get())
-                ep_season  = ep_secici.re_first(r"(\d+)\. ?Sezon")
-                ep_episode = ep_secici.re_first(r"(\d+)\. ?Bölüm")
+                    if ep_title and ep_href:
+                        ep_list.append(Episode(
+                            season  = ep_season,
+                            episode = ep_episode,
+                            title   = ep_title,
+                            url     = ep_href,
+                        ))
+                return ep_list
+            except Exception:
+                return []
 
-                if ep_title and ep_href:
-                    episodes.append(Episode(
-                        season  = ep_season,
-                        episode = ep_episode,
-                        title   = ep_title,
-                        url     = ep_href,
-                    ))
+        if sezon_links:
+            results = await asyncio.gather(*(fetch_single_season(link) for link in sezon_links))
+            episodes = [ep for sublist in results for ep in sublist]
+        else:
+            episodes = []
 
-        return SeriesInfo(
+        seasons_dict: dict[int, list[Episode]] = {}
+        for ep in episodes:
+            try:
+                s_num = int(ep.season) if ep.season is not None else 1
+            except (ValueError, TypeError):
+                s_num = 1
+            if s_num not in seasons_dict:
+                seasons_dict[s_num] = []
+            seasons_dict[s_num].append(ep)
+
+        result_info = SeriesInfo(
             url         = url,
             poster      = poster,
             title       = title,
@@ -296,120 +408,214 @@ class DiziBox(PluginBase):
             tags        = tags,
             rating      = rating,
             year        = year,
-            episodes    = episodes,
             actors      = actors,
+            seasons     = seasons_dict if seasons_dict else len(sezon_links),
         )
 
+        # Sonuçları hem orijinal URL hem de dizi URL'si ile önbelleğe al
+        self._detail_cache[url] = (now, result_info)
+        if target_url != url:
+            self._detail_cache[target_url] = (now, result_info)
 
-    async def _iframe_decode(self, name:str, iframe_link:str, referer:str) -> list[str]:
+        return result_info
+
+    async def _iframe_decode(self, name: str, iframe_link: str, referer: str) -> list[dict]:
         results = []
+        if not iframe_link or not isinstance(iframe_link, str):
+            return results
 
-        if "/player/king/king.php" in iframe_link:
-            iframe_link = iframe_link.replace("king.php?v=", "king.php?wmode=opaque&v=")
-            self.httpx.headers.update({"Referer": referer})
+        try:
+            if "/player/king/king.php" in iframe_link:
+                iframe_link = iframe_link.replace("king.php?v=", "king.php?wmode=opaque&v=")
+                self.httpx.headers.update({"Referer": referer})
 
-            istek  = await self.httpx.get(iframe_link)
-            secici = Selector(istek.text)
-            iframe = secici.css("div#Player iframe::attr(src)").get()
+                istek  = await self.httpx.get(iframe_link)
+                secici = Selector(istek.text)
+                iframe = secici.css("div#Player iframe::attr(src)").get() or secici.css("iframe::attr(src)").get()
 
-            self.httpx.headers.update({"Referer": self.main_url})
-            
-            istek = await self.httpx.get(iframe)
+                if iframe:
+                    iframe = self.fix_url(iframe)
+                    self.httpx.headers.update({"Referer": self.main_url})
+                    istek = await self.httpx.get(iframe)
 
-            crypt_data = re.search(r"CryptoJS\.AES\.decrypt\(\"(.*)\",\"", istek.text)[1]
-            crypt_pass = re.search(r"\",\"(.*)\"\);", istek.text)[1]
-            decode     = CryptoJS.decrypt(crypt_pass, crypt_data)
+                    crypt_match = re.search(r"CryptoJS\.AES\.decrypt\(\"(.*)\",\"", istek.text)
+                    pass_match = re.search(r"\",\"(.*)\"\);", istek.text)
 
-            if video_match := re.search(r"file: '(.*)',", decode):
-                results.append({
-                    "name": "King",
-                    "url": video_match[1],  
-                    "headers": {
-                        "User-Agent": self.headers["User-Agent"],
-                        "Cookie": self.cookies,
-                        },"referer": video_match[1]
-                })
-            else:
-                # return iframe, user-agents and referer might be needed for some links
-                konsol.log(f"Çözümleme başarısız, iframe: {iframe}, referer: {referer}")
-                results.append({
-                    "name": "king2",
-                    "url": iframe,
-                    "headers": {
-                        "User-Agent": self.headers["User-Agent"],
-                        "Cookie": self.cookies,
-                    },"referer": iframe
-                })
+                    if crypt_match and pass_match:
+                        try:
+                            crypt_data = crypt_match[1]
+                            crypt_pass = pass_match[1]
+                            decode = CryptoJS.decrypt(crypt_pass, crypt_data)
 
-        elif "/player/moly/moly.php" in iframe_link:
-            iframe_link = iframe_link.replace("moly.php?h=", "moly.php?wmode=opaque&h=")
-            self.httpx.headers.update({"Referer": referer})
-            while True:
-                await asyncio.sleep(.3)
-                with contextlib.suppress(Exception):
-                    istek  = await self.httpx.get(iframe_link)
-
-                    if atob_data := re.search(r"unescape\(\"(.*)\"\)", istek.text):
-                        decoded_atob = urllib.parse.unquote(atob_data[1])
-                        str_atob     = base64.b64decode(decoded_atob).decode("utf-8")
-
-                    if iframe := Selector(str_atob).css("div#Player iframe::attr(src)").get():
+                            if video_match := re.search(r"file: '(.*)',", decode):
+                                results.append({
+                                    "name": "King",
+                                    "url": video_match[1],
+                                    "headers": {
+                                        "User-Agent": self.headers["User-Agent"],
+                                        "Cookie": self.cookies,
+                                    },
+                                    "referer": video_match[1]
+                                })
+                            else:
+                                results.append({
+                                    "name": "King",
+                                    "url": iframe,
+                                    "headers": {
+                                        "User-Agent": self.headers["User-Agent"],
+                                        "Cookie": self.cookies,
+                                    },
+                                    "referer": iframe
+                                })
+                        except Exception as e:
+                            konsol.log(f"CryptoJS decrypt error: {e}")
+                            results.append({
+                                "name": "King",
+                                "url": iframe,
+                                "headers": {
+                                    "User-Agent": self.headers["User-Agent"],
+                                    "Cookie": self.cookies,
+                                },
+                                "referer": iframe
+                            })
+                    else:
                         results.append({
-                            "name" : "Moly",
+                            "name": "King",
                             "url": iframe,
                             "headers": {
-                                "User-Agent": self.headers["User-Agent"]
-                            },"referer": ""
+                                "User-Agent": self.headers["User-Agent"],
+                                "Cookie": self.cookies,
+                            },
+                            "referer": iframe
                         })
 
-                    break
+            elif "/player/moly/moly.php" in iframe_link:
+                iframe_link = iframe_link.replace("moly.php?h=", "moly.php?wmode=opaque&h=")
+                self.httpx.headers.update({"Referer": referer})
+                for _ in range(5):
+                    await asyncio.sleep(0.3)
+                    try:
+                        istek = await self.httpx.get(iframe_link)
+                        atob_match = re.search(r"unescape\(\"(.*)\"\)", istek.text)
+                        if atob_match:
+                            decoded_atob = urllib.parse.unquote(atob_match[1])
+                            str_atob = base64.b64decode(decoded_atob).decode("utf-8")
+                            if iframe := Selector(str_atob).css("div#Player iframe::attr(src)").get():
+                                fixed_iframe = self.fix_url(iframe)
+                                if fixed_iframe and fixed_iframe.startswith("http"):
+                                    results.append({
+                                        "name": "Moly",
+                                        "url": fixed_iframe,
+                                        "headers": {
+                                            "User-Agent": self.headers["User-Agent"]
+                                        },
+                                        "referer": ""
+                                    })
+                                    break
+                    except Exception:
+                        continue
 
-        elif "/player/haydi.php" in iframe_link:
-            okru_url = base64.b64decode(iframe_link.split("?v=")[-1]).decode("utf-8")
-            results.append({
-                "name": "Okru",
-                "url": okru_url,
-                "headers": {
-                    "User-Agent": self.headers["User-Agent"],
-                     
-                },"referer": ""
-            })
+            elif "/player/haydi.php" in iframe_link:
+                try:
+                    parts = iframe_link.split("?v=")
+                    if len(parts) > 1:
+                        okru_url = base64.b64decode(parts[-1]).decode("utf-8")
+                        if okru_url and okru_url.startswith("http"):
+                            results.append({
+                                "name": "Okru",
+                                "url": okru_url,
+                                "headers": {
+                                    "User-Agent": self.headers["User-Agent"],
+                                },
+                                "referer": ""
+                            })
+                except Exception as e:
+                    konsol.log(f"Haydi decode error: {e}")
+
+            else:
+                # Standalone/direct embed player
+                if iframe_link.startswith("http"):
+                    results.append({
+                        "name": name or "Dizibox",
+                        "url": iframe_link,
+                        "headers": {
+                            "User-Agent": self.headers["User-Agent"],
+                        },
+                        "referer": referer
+                    })
+        except Exception as e:
+            konsol.log(f"_iframe_decode exception ({iframe_link}): {e}")
 
         return results
 
 
     async def load_links(self, url: str) -> list[ExtractResult]:
-        
+        if not url:
+            return []
+
+        # Eğer dizi ana sayfası verilmişse (/diziler/...) ilk bölümün linklerini getir
+        if "/diziler/" in url:
+            try:
+                item = await self.load_item(url)
+                if item and item.episodes:
+                    return await self.load_links(item.episodes[0].url)
+            except Exception as e:
+                konsol.log(f"Dizi ana sayfası bölümleri yüklenirken hata: {e}")
+
         istek  = await self.httpx.get(url)
         secici = Selector(istek.text)
-        # konsol.log(url)
+
+        # Eğer video alanı yoksa ama dizi detay sayfasıysa ilk bölümü çekmeyi dene
+        if not secici.css("div#video-area") and secici.css("div#seasons-list"):
+            try:
+                item = await self.load_item(url)
+                if item and item.episodes:
+                    return await self.load_links(item.episodes[0].url)
+            except Exception:
+                pass
+
         iframes = []
         if main_iframe := secici.css("div#video-area iframe::attr(src)").get():
-            if decoded := await self._iframe_decode(self.name, main_iframe, url):
-                iframes.extend(decoded)
-        # konsol.log(iframes)
+            try:
+                if decoded := await self._iframe_decode(self.name, self.fix_url(main_iframe), url):
+                    iframes.extend(decoded)
+            except Exception as e:
+                konsol.log(f"Ana iframe çözülürken hata: {e}")
+
         for alternatif in secici.css("div.video-toolbar option[value]"):
             alt_name = alternatif.css("::text").get()
             alt_link = alternatif.css("::attr(value)").get()
 
-            if not alt_link:
+            if not alt_link or alt_link.strip() in ("", "#") or alt_link.startswith("javascript"):
                 continue
 
-            self.httpx.headers.update({"Referer": url})
-            alt_istek = await self.httpx.get(alt_link)
-            alt_istek.raise_for_status()
+            alt_link = self.fix_url(alt_link)
+            if not alt_link.startswith("http"):
+                continue
 
-            alt_secici = Selector(alt_istek.text)
-            if alt_iframe := alt_secici.css("div#video-area iframe::attr(src)").get():
-                if decoded := await self._iframe_decode(alt_name, alt_iframe, url):
-                    iframes.extend(decoded)
+            try:
+                self.httpx.headers.update({"Referer": url})
+                alt_istek = await self.httpx.get(alt_link)
+                if alt_istek.status_code == 200:
+                    alt_secici = Selector(alt_istek.text)
+                    if alt_iframe := (alt_secici.css("div#video-area iframe::attr(src)").get() or alt_secici.css("iframe::attr(src)").get()):
+                        if decoded := await self._iframe_decode(alt_name or "Alternatif", self.fix_url(alt_iframe), url):
+                            iframes.extend(decoded)
+            except Exception as e:
+                konsol.log(f"Alternatif link çözülürken hata ({alt_name}): {e}")
 
-        return [ExtractResult(
-            name    = iframe.get("name", "Dizibox"),
-            url     = iframe["url"],    
-            referer = iframe["referer"],
-            headers = iframe.get("headers", {})
-        ) for iframe in iframes]
+        valid_results = []
+        for iframe in iframes:
+            i_url = iframe.get("url")
+            if i_url and isinstance(i_url, str) and i_url.startswith("http"):
+                valid_results.append(ExtractResult(
+                    name    = iframe.get("name", "Dizibox"),
+                    url     = i_url,
+                    referer = iframe.get("referer", url),
+                    headers = iframe.get("headers", {})
+                ))
+
+        return valid_results
 
 
 

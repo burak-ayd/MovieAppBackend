@@ -14,6 +14,7 @@ from Core.Plugin.PluginModels import (
     MovieInfo,
     SeriesInfo,
 )
+from Core.Extractor.ExtractorModels import ExtractResult
 
 
 
@@ -323,9 +324,10 @@ class TestPluginLoadLinks:
         assert isinstance(links, list), f"load_links() liste dönmelidir, gelen tip: {type(links)}"
 
         for link in links:
-            assert isinstance(link, str), f"Embed link string olmalı, gelen: {type(link)}"
-            assert link.startswith("http://") or link.startswith("https://"), (
-                f"Embed link tam HTTP/HTTPS URL olmalıdır: {link}"
+            assert isinstance(link, (str, ExtractResult)), f"Embed link string veya ExtractResult olmalı, gelen: {type(link)}"
+            link_url = link.url if isinstance(link, ExtractResult) else link
+            assert link_url.startswith("http://") or link_url.startswith("https://"), (
+                f"Embed link tam HTTP/HTTPS URL olmalıdır: {link_url}"
             )
         konsol.print(links)
 

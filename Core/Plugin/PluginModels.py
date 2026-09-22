@@ -95,7 +95,7 @@ class SeriesInfo(BaseModel):
     actors       : Optional[str]           = None
     episodes     : Optional[List[Episode]] = None
     plugin       : Optional[str]           = None
-    seasons      : Optional[Dict[Any, Any]] = None
+    seasons      : Optional[Union[Dict[Any, Any], int, str, list]] = None
 
     @field_validator("tags", "actors", mode="before")
     @classmethod

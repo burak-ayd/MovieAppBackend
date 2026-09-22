@@ -95,6 +95,14 @@ class PluginBase(ABC):
             except Exception:
                 pass
 
+        # Bölüm linklerini değil, dizi/film ana sayfalarını önceliklendir
+        non_episodes = [
+            item for item in items
+            if item.url and not ("-bolum-izle" in item.url or "-sezon-" in item.url)
+        ]
+        if non_episodes:
+            items = non_episodes
+
         # Tekilleştirme (URL bazlı)
         unique_items = list({item.url: item for item in items if item.url}.values())
         if not unique_items:

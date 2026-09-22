@@ -10,6 +10,9 @@ class ExtractorManager:
 
     def find_extractor(self, link) -> ExtractorBase:
         # Verilen bağlantıyı işleyebilecek çıkarıcıyı bul
+        if not link or not isinstance(link, str):
+            return None
+
         for extractor_cls in self.extractors:
             extractor:ExtractorBase = extractor_cls()
             if extractor.can_handle_url(link):

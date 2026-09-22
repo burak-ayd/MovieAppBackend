@@ -3,17 +3,20 @@ Extractor (çıkarıcı) ile ilgili API endpoint'leri.
 
 Endpoint'ler:
   GET  /api/extractors                       → Yüklü tüm extractor'ları listele
-  POST /api/extract                          → Bir URL'den medya çıkar
+  GET  /api/extract?url=...                  → URL'den medya çıkar (GET)
+  POST /api/extract                          → URL'den medya çıkar (POST)
 """
 
 from __future__ import annotations
 
+import asyncio
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
 
-from api.deps import get_extractor_manager
+from api.deps import get_extractor_manager, get_plugin_manager
+from Core.Extractor.ExtractorModels import ExtractResult
 
 router = APIRouter(prefix="/api", tags=["extractors"])
 
@@ -35,6 +38,109 @@ def _serialize(obj: Any) -> Any:
     return obj
 
 
+async def _process_extract(url: str, referer: str | None = None) -> list[dict[str, Any]]:
+    """
+    Verilen URL'yi çözümler:
+    1. Doğrudan bir extractor URL'si ise ilgili extractor ile çözer.
+    2. Bir plugin (film/dizi içerik sayfası) linki ise, eklentinin tüm izleme linklerini
+       otomatik toplayıp her birini ilgili extractor ile paralel olarak çözer.
+    """
+    clean_url = (url or "").strip()
+    if not clean_url:
+        raise HTTPException(status_code=400, detail="URL boş olamaz.")
+
+    em = get_extractor_manager()
+    pm = get_plugin_manager()
+
+    # 1. URL doğrudan bilinen bir extractor URL'si mi? (Rapidrame, Close, Vidmoly vb.)
+    direct_extractor = em.find_extractor(clean_url)
+    if direct_extractor:
+        try:
+            result = await direct_extractor.extract(clean_url, referer=referer)
+            return [{
+                "extractor": direct_extractor.name,
+                "result": _serialize(result),
+            }]
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Medya çıkarılırken hata: {e}")
+
+    # 2. URL bir eklentiye ait içerik (film/dizi) sayfası mı?
+    plugin = pm.find_plugin_by_url(clean_url)
+    if plugin:
+        try:
+            raw_links = await plugin.load_links(clean_url)
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Eklenti bağlantıları alınırken hata: {e}")
+
+        if not raw_links:
+            return []
+
+        async def _resolve_single_link(raw_item: Any) -> dict[str, Any] | None:
+            # Durum A: Plugin zaten ExtractResult nesnesi döndürmüşse (örn. DiziBox)
+            if isinstance(raw_item, ExtractResult):
+                if not raw_item.url or not isinstance(raw_item.url, str) or not raw_item.url.startswith("http"):
+                    return None
+
+                sub_extractor = em.find_extractor(raw_item.url)
+                if sub_extractor:
+                    try:
+                        sub_result = await sub_extractor.extract(raw_item.url, referer=raw_item.referer or clean_url)
+                        return {
+                            "extractor": sub_extractor.name,
+                            "result": _serialize(sub_result),
+                        }
+                    except Exception:
+                        pass
+                return {
+                    "extractor": raw_item.name or getattr(plugin, "name", "Plugin"),
+                    "result": _serialize(raw_item),
+                }
+
+            # Durum B: Plugin embed / oynatıcı linki (string) döndürmüşse (örn. HDFilmCehennemi)
+            if isinstance(raw_item, str):
+                if not raw_item or not raw_item.startswith("http"):
+                    return None
+
+                sub_extractor = em.find_extractor(raw_item)
+                if sub_extractor:
+                    try:
+                        sub_result = await sub_extractor.extract(raw_item, referer=clean_url)
+                        return {
+                            "extractor": sub_extractor.name,
+                            "result": _serialize(sub_result),
+                        }
+                    except Exception:
+                        return None
+                else:
+                    return {
+                        "extractor": "Direct",
+                        "result": {
+                            "name": "Direct Link",
+                            "url": raw_item,
+                            "referer": clean_url,
+                            "headers": {},
+                            "subtitles": [],
+                        },
+                    }
+
+            return None
+
+        tasks = [_resolve_single_link(item) for item in raw_links]
+        resolved = await asyncio.gather(*tasks)
+        valid_results = [r for r in resolved if r is not None]
+
+        if not valid_results:
+            raise HTTPException(status_code=404, detail="İçerikten oynatılabilir medya bağlantısı çıkarılamadı.")
+
+        return valid_results
+
+    # 3. Ne extractor ne de plugin eşleştiyse
+    raise HTTPException(
+        status_code=404,
+        detail=f"Bu URL için uygun bir eklenti veya extractor bulunamadı: {clean_url}",
+    )
+
+
 @router.get("/extractors", summary="Tüm extractor'ları listele")
 async def list_extractors():
     """Yüklü tüm extractor'ların listesini döndürür."""
@@ -49,27 +155,24 @@ async def list_extractors():
     return {"extractors": extractors}
 
 
-@router.post("/extract", summary="URL'den medya çıkar")
-async def extract_media(request: ExtractRequest):
+@router.get("/extract", summary="URL'den medya çıkar (GET)")
+async def extract_media_get(
+    url: str = Query(..., description="Medya veya içerik sayfası URL'si"),
+    referer: str | None = Query(None, description="Opsiyonel Referer başlığı"),
+):
     """
-    Verilen URL için uygun extractor'ı bulur ve medya bilgilerini çıkarır.
-    Sonuçta doğrudan oynatılabilir URL, header ve altyazı bilgileri yer alır.
+    Verilen URL için medyayı çıkarır.
+    İçerik sayfası (film/dizi) linki verilirse, tüm alternatif video kaynaklarını
+    otomatik bulup extractor'lardan geçirerek tek seferde döndürür.
     """
-    em = get_extractor_manager()
-    extractor = em.find_extractor(request.url)
+    return await _process_extract(url=url, referer=referer)
 
-    if not extractor:
-        raise HTTPException(
-            status_code=404,
-            detail=f"Bu URL için uygun bir extractor bulunamadı: {request.url}",
-        )
 
-    try:
-        result = await extractor.extract(request.url, referer=request.referer)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Medya çıkarılırken hata: {e}")
-
-    return {
-        "extractor": extractor.name,
-        "result": _serialize(result),
-    }
+@router.post("/extract", summary="URL'den medya çıkar (POST)")
+async def extract_media_post(request: ExtractRequest):
+    """
+    Verilen URL için medyayı çıkarır.
+    İçerik sayfası (film/dizi) linki verilirse, tüm alternatif video kaynaklarını
+    otomatik bulup extractor'lardan geçirerek tek seferde döndürür.
+    """
+    return await _process_extract(url=request.url, referer=request.referer)
