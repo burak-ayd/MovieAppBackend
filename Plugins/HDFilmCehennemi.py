@@ -57,9 +57,9 @@ class HDFilmCehennemi(PluginBase):
         return slug or str(uuid.uuid4())
 
     async def get_main_page(self, page: int = 1, url: str = "", category: str = "") -> list[MainPageResult]:
+        
         if not url:
             url = f"{self.main_url}/load/page/{page}/home"
-
         request = await self.httpx.get(url, follow_redirects=True, headers=self.headers)
         if request.status_code != 200:
             return []
@@ -75,6 +75,12 @@ class HDFilmCehennemi(PluginBase):
 
         selector = Selector(text=html)
 
+        if url == self.main_url:
+            selector = selector.css("section.tab-section a.poster")
+        else:
+            selector = selector.css("a.poster")
+
+
         return [
             MainPageResult(
                 category=category,
@@ -83,10 +89,10 @@ class HDFilmCehennemi(PluginBase):
                 poster=self.fix_url(veri.css("img::attr(data-src)").get() or veri.css("img::attr(src)").get()),
                 language=veri.css("div.poster-info > span.poster-lang > span::text").get().strip() if veri.css("div.poster-info > span.poster-lang > span::text").get() else None,
                 release_date=veri.css("div.poster-meta > span::text").get().strip() if veri.css("div.poster-meta > span::text").get() else None,
-                imdb=veri.css("div.poster-meta > span.imdb::text").get().strip() if veri.css("div.poster-meta > span.imdb::text").get() else None,
+                rating=veri.css("div.poster-meta > span.imdb::text").get().strip() if veri.css("div.poster-meta > span.imdb::text").get() else None,
                 plugin=self.name,
             )
-            for veri in selector.css("a.poster")
+            for veri in selector
         ]
 
     async def search(self, query: str) -> list[SearchResult]:

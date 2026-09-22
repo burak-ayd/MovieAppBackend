@@ -61,6 +61,10 @@ class DiziBox(PluginBase):
 }
 
     async def get_main_page(self, page: int=1, url: str="", category: str="") -> list[MainPageResult]:
+
+        if not url == self.main_url:
+            return self.get_category_page(page, category)
+
         if not url:
             url = f"{self.main_url}/"
         istek = await self.httpx.get(
@@ -106,7 +110,10 @@ class DiziBox(PluginBase):
         return {"popular_series": popular_series, "new_episodes": new_episodes}
 
     async def get_category_page(self, page: int=1, category: str="") -> list[MainPageResult]:
-        get_category_url = self.main_page.get(category)
+        if not category.startswith("http"):
+            get_category_url = self.main_page.get(category)
+        else:
+            get_category_url = category
         
         url = get_category_url.replace("SAYFA", str(page))
 

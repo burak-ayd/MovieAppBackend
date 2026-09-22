@@ -67,28 +67,3 @@ async def root():
         "docs": "/docs",
     }
 
-
-
-
-from fastapi.responses import Response
-import cloudscraper
-
-image_scraper = cloudscraper.create_scraper()
-
-@app.api_route("/api/proxy/image", methods=["GET", "HEAD"], tags=["proxy"], summary="Resim proxy")
-async def proxy_image(url: str):
-    """Cloudflare veya anti-bot korumalı görselleri istemciye güvenle aktaran proxy."""
-    try:
-        headers = {
-            "Referer": "https://www.hdfilmcehennemi.nl/",
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36"
-        }
-        r = image_scraper.get(url, headers=headers, timeout=10)
-        content_type = r.headers.get("content-type", "image/webp")
-        return Response(
-            content=r.content,
-            media_type=content_type,
-            headers={"Cache-Control": "public, max-age=86400, s-maxage=86400"}
-        )
-    except Exception as e:
-        return Response(status_code=500, content=str(e))

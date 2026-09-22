@@ -33,7 +33,7 @@ class MainPageResult(BaseModel):
     plugin     : Optional[str] = None
     language     : Optional[str] = None
     release_date : Optional[str] = None
-    imdb         : Optional[str] = None
+    rating         : Optional[str] = None
 
     def __str__(self) -> str:
         return self.model_dump_json(indent=4)
