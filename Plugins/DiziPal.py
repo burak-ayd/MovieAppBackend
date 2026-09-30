@@ -175,7 +175,7 @@ class DiziPal(PluginBase):
             url        = adres,
             category   = category,
             poster     = self.fix_url(poster) if poster else None,
-            media_type = "movie" if "/movies/" in adres else "series",
+            media_type = "Film" if "/movies/" in adres else "Dizi",
         )
 
     def _html_kartlari(self, soup, category: str) -> List[MainPageResult]:
@@ -272,7 +272,7 @@ class DiziPal(PluginBase):
                 poster     = item.get("object_poster_url") or item.get("poster"),
                 year       = str(yil) if yil else None,
                 rating     = str(puan) if puan else None,
-                media_type = "series" if dizi_mi else "movie",
+                media_type = "Dizi" if dizi_mi else "Film",
             ))
         return sonuclar
 

@@ -211,7 +211,7 @@ class FullHDFilmizlesene(PluginBase):
         html = await self.async_cf_get(f"{self.main_url}/arama/{query.strip()}")
         kartlar = [self._bloktan_kart(b) for b in self._film_bloklari(html)]
         return [
-            SearchResult(title=k.title, url=k.url, poster=k.poster, year=k.release_date, media_type="movie")
+            SearchResult(title=k.title, url=k.url, poster=k.poster, year=k.release_date, media_type="Film")
             for k in kartlar if k
         ]
 

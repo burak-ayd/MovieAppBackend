@@ -823,7 +823,7 @@ class Dizilla(PluginBase):
                     url=link,
                     poster=poster_url,
                     year=year,
-                    media_type="tv",
+                    media_type= "Dizi",
                     plugin=self.name
                 ))
         except Exception as e:

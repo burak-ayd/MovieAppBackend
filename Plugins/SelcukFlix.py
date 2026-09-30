@@ -561,7 +561,7 @@ class SelcukFlix(PluginBase):
                         poster=poster,
                         year=item.get("object_release_year") or item.get("release_year"),
                         rating=str(item.get("imdb_point")) if item.get("imdb_point") else None,
-                        media_type="movie",
+                        media_type="Film",
                         plugin=self.name,
                     ))
                 elif "/dizi/" in link:
@@ -571,7 +571,7 @@ class SelcukFlix(PluginBase):
                         poster=poster,
                         year=item.get("object_release_year") or item.get("release_year"),
                         rating=str(item.get("imdb_point")) if item.get("imdb_point") else None,
-                        media_type="tv",
+                        media_type="Dizi",
                         plugin=self.name,
                     ))
 
@@ -619,7 +619,7 @@ class SelcukFlix(PluginBase):
                     title=baslik,
                     url=self._series_url(link) if dizi_mi else link,
                     poster=await self._resolve_poster(poster),
-                    media_type="tv" if dizi_mi else "movie",
+                    media_type="Dizi" if dizi_mi else "Film",
                     plugin=self.name,
                 ))
         except Exception as e:

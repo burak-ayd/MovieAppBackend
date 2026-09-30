@@ -195,7 +195,7 @@ class DiziPalOriginal(PluginBase):
                 url        = adres,
                 category   = category,
                 poster     = poster,
-                media_type = "movie" if "/film/" in adres else "series",
+                media_type = "Film" if "/film/" in adres else "Dizi",
             ))
         return kartlar
 
@@ -237,7 +237,7 @@ class DiziPalOriginal(PluginBase):
                 poster     = poster,
                 season     = sezon,
                 episode    = bolum_no,
-                media_type = "series",
+                media_type = "Dizi",
             ))
         return kartlar
 
@@ -265,7 +265,7 @@ class DiziPalOriginal(PluginBase):
                 url        = self.fix_url(adres),
                 poster     = item.get("poster"),
                 year       = item.get("year"),
-                media_type = "series" if dizi_mi else "movie",
+                media_type = "Dizi" if dizi_mi else "Film",
             ))
         return sonuclar
 
