@@ -7,7 +7,7 @@ import re
 import string
 import uuid
 from Core.Plugin.PluginBase import PluginBase
-from Core.Plugin.PluginModels import SearchResult, MainPageResult, MovieInfo, SeriesInfo
+from Core.Plugin.PluginModels import SearchResult, MainPageResult, MovieInfo, SeriesInfo, Episode
 from Core.Helpers.TitleHelper import TitleHelper
 
 
@@ -28,7 +28,7 @@ class HDFilmCehennemi(PluginBase):
 
     main_page = {
         "Yeni Eklenen Filmler"  : f"{main_url}",
-        "Yeni Eklenen Diziler"  : f"{main_url}/yabancidiziizle-2",
+        "Yeni Eklenen Diziler"  : f"{main_url}/yabancidiziizle-5",
         "Tavsiye Filmler"       : f"{main_url}/category/tavsiye-filmler-izle2",
         "IMDB 7+ Filmler"       : f"{main_url}/imdb-7-puan-uzeri-filmler",
         "En Çok Yorumlananlar"  : f"{main_url}/en-cok-yorumlananlar-1",
@@ -57,9 +57,11 @@ class HDFilmCehennemi(PluginBase):
         return slug or str(uuid.uuid4())
 
     async def get_main_page(self, page: int = 1, url: str = "", category: str = "") -> list[MainPageResult]:
-        
         if not url:
             url = f"{self.main_url}/load/page/{page}/home"
+        # url yabancidizi içeriyorsa page parametresini sil
+        if "yabancidizi" in url:
+            url = url.replace("yabancidiziizle-5",f"load/page/{page}/home-series/")
         request = await self.httpx.get(url, follow_redirects=True, headers=self.headers)
         if request.status_code != 200:
             return []
@@ -129,6 +131,9 @@ class HDFilmCehennemi(PluginBase):
         if "404 Hata - Sayfa Bulunamadı" in str(secici):
             return None
 
+        if "dizi" in url:
+            return await self.load_series(url)
+
         try:
             title = secici.css("h1.section-title::text").get().strip()
             original_title = secici.css("h1.section-title small::text").get()
@@ -183,6 +188,110 @@ class HDFilmCehennemi(PluginBase):
         )
 
         return data
+
+    async def load_series(self, url: str) -> Optional[SeriesInfo]:
+        request = await self.httpx.get(url, headers={"Referer": f"{self.main_url}/"})
+        secici = Selector(request.text)
+        if "404 Hata - Sayfa Bulunamadı" in str(secici):
+            return None
+
+        try:
+            # Başlık
+            title = (secici.css("h1.section-title::text").get() or "").strip()
+            
+            # Poster
+            poster = (
+                secici.css("aside.post-info-poster img::attr(data-src)").get()
+                or secici.css("aside.post-info-poster img::attr(src)").get()
+                or ""
+            ).strip()
+            poster_url = self.fix_url(poster) if poster else None
+
+            # Açıklama
+            description = (secici.css("article.post-info-content > p::text").get() or "").strip()
+            
+            # Türler / Etiketler (Modeldeki validator liste -> virgülle ayrılmış string yapar)
+            genres = secici.css("div.post-info-genres a::text").getall()
+            
+            # IMDb Puanı
+            rating = (secici.css("div.post-info-imdb-rating span::text").get() or "").strip()
+            if not rating:
+                rating = secici.xpath("normalize-space(//div[contains(@class, 'post-info-imdb-rating')]//span)").get() or ""
+
+            # Yıl
+            years = secici.css("div.post-info-year-country a::text").getall()
+            year = years[0].strip() if len(years) > 0 else None
+
+            # Oyuncular (Modeldeki validator liste -> virgülle ayrılmış string yapar)
+            actors = secici.css("div.post-info-cast a > strong::text").getall()
+
+            # Fragman URL
+            fragman_attr = secici.css("div.post-info-trailer button::attr(data-modal)").get()
+            fragman_url = None
+            if fragman_attr:
+                fragman_id = fragman_attr.replace("trailer/", "").strip()
+                if fragman_id:
+                    fragman_url = f"https://www.youtube.com/embed/{fragman_id}?autoplay=1"
+
+            # --- SEZON VE BÖLÜMLERİN AYIKLANMASI ---
+            seasons_dict: dict[str, list[Episode]] = {}
+            season_containers = secici.css("div.seasons-tabs-wrapper div.seasons-tab-content")
+
+            for container in season_containers:
+                tab_attr = container.attrib.get("data-tab")
+                try:
+                    season_num = int(tab_attr) if tab_attr else 1
+                except ValueError:
+                    season_num = 1
+
+                for item in container.css("a.mini-poster"):
+                    ep_href = self.fix_url(item.attrib.get("href"))
+                    ep_title = (item.css("h4.mini-poster-title::text").get() or "").strip()
+                    
+                    if not ep_href:
+                        continue
+
+                    # Başlıktan sezon ve bölüm numaralarını ayıkla (Örn: "1. Sezon 2. Bölüm")
+                    s_match = re.search(r"(\d+)\.\s*Sezon", ep_title)
+                    e_match = re.search(r"(\d+)\.\s*Bölüm", ep_title)
+
+                    ep_s = int(s_match.group(1)) if s_match else season_num
+                    ep_e = int(e_match.group(1)) if e_match else 1
+
+                    # Episode modeli alanlarına göre güvenli atama
+                    episode_obj = Episode(
+                        season=ep_s,
+                        episode=ep_e,
+                        season_number=ep_s,
+                        episode_number=ep_e,
+                        title=ep_title if ep_title else f"{ep_s}. Sezon {ep_e}. Bölüm",
+                        url=ep_href
+                    )
+
+                    s_key = str(ep_s)
+                    if s_key not in seasons_dict:
+                        seasons_dict[s_key] = []
+                    seasons_dict[s_key].append(episode_obj)
+
+        except Exception as e:
+            print(f"Link: {url} Hata: {e}")
+            return None
+
+        # Doğrudan SeriesInfo model alanlarına uygun return
+        return SeriesInfo(
+            content_type="series",
+            url=url,
+            poster=poster_url,
+            title=self.clean_title(title),
+            description=description,
+            tags=genres,
+            rating=rating,
+            fragman_url=fragman_url,
+            year=year,
+            actors=actors,
+            plugin=self.name,
+            seasons=seasons_dict if seasons_dict else None,
+        )
 
     async def _get_cehennempass_links(self, video_id: str, referer: str) -> List[Dict[str, Any]]:
         """CehennemPass API'den video linklerini alır."""

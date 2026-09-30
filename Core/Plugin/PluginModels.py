@@ -91,9 +91,9 @@ class SeriesInfo(BaseModel):
     description  : Optional[str]           = None
     tags         : Optional[str]           = None
     rating       : Optional[str]           = None
+    fragman_url  : Optional[str]           = None
     year         : Optional[str]           = None
     actors       : Optional[str]           = None
-    episodes     : Optional[List[Episode]] = None
     plugin       : Optional[str]           = None
     seasons      : Optional[Union[Dict[Any, Any], int, str, list]] = None
 

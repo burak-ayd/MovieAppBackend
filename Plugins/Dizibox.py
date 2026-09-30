@@ -1,5 +1,6 @@
 # Bu araç @keyiflerolsun tarafından | @KekikAkademi için yazılmıştır.
 
+from Core import HTMLHelper
 import asyncio
 import time
 import base64
@@ -74,14 +75,18 @@ class DiziBox(PluginBase):
 
         # Varsayılan ana sayfa
         fetch_url = f"{self.main_url}/"
-        istek = await self.httpx.get(
+        istek = await self.client.get(
             url              = fetch_url,
             follow_redirects = True,
             timeout          = 30,
             headers          = self.headers,
             cookies          = self.cookies
         )
-        secici = Selector(istek.text)
+        if istek.status_code == 403:
+            istek = await self.async_cf_get(fetch_url, headers=self.headers)
+            secici = Selector(istek)
+        else:
+            secici = Selector(istek.text)
         
         container = secici.xpath(
             '//comment()[contains(.,"POPULAR SERIES")]/parent::*'
@@ -344,7 +349,7 @@ class DiziBox(PluginBase):
                 url = self.fix_url(archive_link)
                 istek = await self.httpx.get(url)
                 secici = Selector(istek.text)
-
+        time.sleep(0.1)
         title       = secici.css("div.tv-overview h1 a::text").get()
         poster      = self.fix_url(secici.css("div.tv-overview figure img::attr(src)").get())
         description = secici.css("div.tv-story p::text").get()
@@ -352,6 +357,7 @@ class DiziBox(PluginBase):
         tags        = secici.css("a[href*='/tur/']::text").getall()
         rating      = secici.css("span.label-imdb b::text").re_first(r"[\d.,]+")
         actors      = [actor.css("::text").get() for actor in secici.css("a[href*='/oyuncu/']")]
+        fragman     = secici.css(".embed-responsive-item > iframe::attr(src)").get()
 
         sezon_links = secici.css("div#seasons-list a::attr(href)").getall()
 
@@ -401,6 +407,7 @@ class DiziBox(PluginBase):
             seasons_dict[s_num].append(ep)
 
         result_info = SeriesInfo(
+            plugin      = self.name,
             url         = url,
             poster      = poster,
             title       = title,
@@ -409,7 +416,9 @@ class DiziBox(PluginBase):
             rating      = rating,
             year        = year,
             actors      = actors,
+            fragman_url     = fragman,
             seasons     = seasons_dict if seasons_dict else len(sezon_links),
+
         )
 
         # Sonuçları hem orijinal URL hem de dizi URL'si ile önbelleğe al
@@ -561,9 +570,13 @@ class DiziBox(PluginBase):
                     return await self.load_links(item.episodes[0].url)
             except Exception as e:
                 konsol.log(f"Dizi ana sayfası bölümleri yüklenirken hata: {e}")
-
-        istek  = await self.httpx.get(url)
-        secici = Selector(istek.text)
+        # httpx yerine Cloudflare bypass metodunu kullanıyoruz
+        try:
+            html_text = await self.async_cf_get(url, headers=self.headers)
+        except Exception:
+            istek = await self.client.get(url, headers=self.headers, cookies=self.cookies)
+            html_text = istek.text
+        secici = Selector(html_text)
 
         # Eğer video alanı yoksa ama dizi detay sayfasıysa ilk bölümü çekmeyi dene
         if not secici.css("div#video-area") and secici.css("div#seasons-list"):

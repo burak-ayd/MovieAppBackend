@@ -1,11 +1,86 @@
+from InquirerPy.containers import instruction
 from selectolax.parser import HTMLParser, Node
 import re
-
+import os
+import tempfile
+from curl_cffi.requests import AsyncSession
+from typing import Optional, Dict
+from playwright.async_api import async_playwright
+from playwright_stealth import Stealth
 
 class HTMLHelper:
     """
     Selectolax ile HTML parsing işlemlerini temiz, kısa ve okunabilir hale getiren yardımcı sınıf.
     """
+    @staticmethod
+    async def fetch_cf(url: str, headers: Optional[Dict[str, str]] = None) -> str:
+        async with async_playwright() as p:
+            # Otomasyon tespit bayraklarını ezen Chromium argümanları
+            args = [
+                "--headless=new",
+                "--disable-blink-features=AutomationControlled",
+                "--no-sandbox",
+                "--disable-infobars",
+                "--disable-dev-shm-usage",
+                "--disable-browser-side-navigation",
+                "--disable-gpu",
+                "--window-size=1920,1080",
+            ]
+
+            user_data_dir = os.path.join(tempfile.gettempdir(), "cf_browser_session")
+            
+            # launch yerine persistent context: gerçek kullanıcı profili gibi davranır
+            context = await p.chromium.launch_persistent_context(
+                user_data_dir=user_data_dir,
+                headless=False,  # Turnstile tespiti için ilk etapta pencereyi açık tutun
+                args=args,
+                user_agent=(
+                    headers.get("User-Agent") if headers and "User-Agent" in headers
+                    else "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+                ),
+                viewport={"width": 1920, "height": 1080},
+                locale="tr-TR",
+                timezone_id="Europe/Istanbul"
+            )
+
+            page = context.pages[0] if context.pages else await context.new_page()
+
+            # navigator.webdriver bayrağını kesin olarak gizleme
+            await page.add_init_script("""
+                Object.defineProperty(navigator, 'webdriver', {
+                    get: () => undefined
+                });
+            """)
+
+            await page.goto(url, wait_until="domcontentloaded", timeout=45000)
+
+            # Turnstile veya Cloudflare bekleme döngüsü
+            for _ in range(25):
+                title = await page.title()
+                content = await page.content()
+
+                # Başlık "Just a moment..." değilse ve challenge elementi yoksa geçilmiştir
+                if "Just a moment" not in title and "challenge-error-text" not in content and "cf_chl_opt" not in content:
+                    await context.close()
+                    return content
+
+                # Eğer Turnstile iframe'i ekrandaysa checkbox'a tıklamayı dene
+                try:
+                    for frame in page.frames:
+                        if "challenges.cloudflare.com" in frame.url:
+                            checkbox = await frame.query_selector("input[type=checkbox], .ctp-checkbox-label, #challenge-stage")
+                            if checkbox:
+                                box = await checkbox.bounding_box()
+                                if box:
+                                    await page.mouse.click(box["x"] + box["width"] / 2, box["y"] + box["height"] / 2)
+                                    break
+                except Exception:
+                    pass
+
+                await page.wait_for_timeout(1000)
+
+            await context.close()
+            raise Exception("Cloudflare Turnstile aşılamadı (Zaman aşımı).")
 
     def __init__(self, html: str):
         self.parser = HTMLParser(html)
