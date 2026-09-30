@@ -27,7 +27,8 @@ class HDFilmCehennemi(PluginBase):
     }
 
     main_page = {
-        "Yeni Eklenen Filmler"  : f"{main_url}",
+        # Ana sayfa her zaman ilk sırada (kök adres)
+        "Ana Sayfa"            : f"{main_url}",
         "Yeni Eklenen Diziler"  : f"{main_url}/yabancidiziizle-5",
         "Tavsiye Filmler"       : f"{main_url}/category/tavsiye-filmler-izle2",
         "IMDB 7+ Filmler"       : f"{main_url}/imdb-7-puan-uzeri-filmler",
@@ -57,7 +58,7 @@ class HDFilmCehennemi(PluginBase):
         return slug or str(uuid.uuid4())
 
     async def get_main_page(self, page: int = 1, url: str = "", category: str = "") -> list[MainPageResult]:
-        if not url:
+        if not url or url == self.main_url+ "/" or url == self.main_url:
             url = f"{self.main_url}/load/page/{page}/home"
         # url yabancidizi içeriyorsa page parametresini sil
         if "yabancidizi" in url:
@@ -65,6 +66,7 @@ class HDFilmCehennemi(PluginBase):
         request = await self.httpx.get(url, follow_redirects=True, headers=self.headers)
         if request.status_code != 200:
             return []
+        print("url: ",url)
 
         try:
             data = request.json()

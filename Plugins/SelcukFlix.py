@@ -47,15 +47,20 @@ def kategori_sorgusu(cid: str, order: str = "date_desc", page: int = 1) -> str:
 
 
 def kategorileri_olustur(main_url: str, order: str = "date_desc") -> Dict[str, str]:
-    """30 kategorilik ana sayfa sözlüğü (ilk iki HTML sayfası, gerisi API)."""
+    """Ana sayfa sözlüğü. İlk sıra her zaman "Ana Sayfa" (kök adres).
+
+    Sıralama değiştirildiğinde sözlük bu fonksiyondan yeniden kurulur.
+    """
+    kok = main_url.rstrip("/")
     sayfalar: Dict[str, str] = {
-        "Yeni Eklenen Filmler": f"{main_url}/film-izle",
-        "Yeni Eklenen Diziler": f"{main_url}/dizi-izle",
+        "Ana Sayfa": kok,
+        "Yeni Eklenen Filmler": f"{kok}/film-izle",
+        "Yeni Eklenen Diziler": f"{kok}/dizi-izle",
     }
     for cid, ad in FILM_KATEGORILERI:
-        sayfalar[ad] = f"{main_url}/api/bg/findMovies?{kategori_sorgusu(cid, order)}"
+        sayfalar[ad] = f"{kok}/api/bg/findMovies?{kategori_sorgusu(cid, order)}"
     for cid, ad in DIZI_KATEGORILERI:
-        sayfalar[ad] = f"{main_url}/api/bg/findSeries?{kategori_sorgusu(cid, order)}"
+        sayfalar[ad] = f"{kok}/api/bg/findSeries?{kategori_sorgusu(cid, order)}"
     return sayfalar
 
 
@@ -310,7 +315,7 @@ class SelcukFlix(PluginBase):
 
     async def get_main_page(self, page: int = 1, url: str = "", category: str = "") -> List[MainPageResult]:
         """Kategori listesi: findMovies / findSeries API dalları, yoksa HTML kartları."""
-        data = (url or "").strip() or self.main_page["Yeni Eklenen Filmler"]
+        data = (url or "").strip() or self.main_url
         page = max(1, int(page or 1))
 
         try:
@@ -434,10 +439,14 @@ class SelcukFlix(PluginBase):
             html = await self._fetch_text(target)
             soup = BeautifulSoup(html or "", "html.parser")
 
-            seciciler = (
-                ['a[href*="/dizi/"]'] if "/dizi" in data
-                else ['a[href*="/film/"]', 'a[href*="/seri-filmler/"]']
-            )
+            kok = self.main_url.rstrip("/")
+            if data.rstrip("/") == kok:
+                # Ana sayfa: film ve dizi kartlarının ikisi de yer alır
+                seciciler = ['a[href*="/film/"]', 'a[href*="/seri-filmler/"]', 'a[href*="/dizi/"]']
+            elif "/dizi" in data:
+                seciciler = ['a[href*="/dizi/"]']
+            else:
+                seciciler = ['a[href*="/film/"]', 'a[href*="/seri-filmler/"]']
 
             kartlar: List[Dict[str, Any]] = []
             for secici in seciciler:

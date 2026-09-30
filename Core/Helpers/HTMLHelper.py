@@ -3,6 +3,7 @@ from selectolax.parser import HTMLParser, Node
 import re
 import os
 import tempfile
+import httpx
 from curl_cffi.requests import AsyncSession
 from typing import Optional, Dict
 from playwright.async_api import async_playwright
@@ -12,8 +13,79 @@ class HTMLHelper:
     """
     Selectolax ile HTML parsing işlemlerini temiz, kısa ve okunabilir hale getiren yardımcı sınıf.
     """
+
+    # Cloudflare/Turnstile challenge işaretleri.
+    # NOT: "challenge-platform" normal sayfalarda da CF'nin `/cdn-cgi/challenge-platform/
+    # scripts/jsd/main.js` etiketi olarak geçtiği için bilerek kullanılmıyor.
+    _CF_ISARETLER = (
+        "Just a moment",
+        "cf_chl_opt",
+        "challenge-error-text",
+        "cf-browser-verification",
+        "Attention Required! | Cloudflare",
+    )
+
+    @staticmethod
+    def _cf_challenge_mi(html: str, status: int = 200) -> bool:
+        """Dönen içerik Cloudflare doğrulama sayfası mı?"""
+        if status in (403, 503) and len(html) < 4000:
+            return True
+        return any(isaret in html for isaret in HTMLHelper._CF_ISARETLER)
+
+    @staticmethod
+    async def _hizli_get(url: str, headers: Optional[Dict[str, str]] = None) -> tuple[str, int]:
+        """Tarayıcısız çekim: httpx -> curl_cffi (TLS parmak izi taklidi)."""
+        istek_basliklari = dict(headers or {})
+        istek_basliklari.setdefault(
+            "User-Agent",
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+            "(KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+        )
+
+        # 1) httpx
+        try:
+            async with httpx.AsyncClient(
+                headers=istek_basliklari, timeout=30, follow_redirects=True
+            ) as client:
+                yanit = await client.get(url)
+                return yanit.text or "", yanit.status_code
+        except Exception:
+            pass
+
+        # 2) curl_cffi — gerçek tarayıcı TLS/basamak izi
+        try:
+            async with AsyncSession(impersonate="chrome124") as oturum:
+                yanit = await oturum.get(url, headers=istek_basliklari, timeout=30)
+                return yanit.text or "", yanit.status_code
+        except Exception:
+            return "", 0
+
     @staticmethod
     async def fetch_cf(url: str, headers: Optional[Dict[str, str]] = None) -> str:
+        """Sayfayı çeker.
+
+        Sıra: (1) tarayıcısız hızlı çekim → (2) yalnızca Cloudflare challenge
+        görülürse Playwright. Böylece normal isteklerde tarayıcı açılmaz ve
+        Windows'ta alt süreç açılamayan ortamlarda (örn. uvicorn) hata
+        oluşmaz; challenge yoksa tarayıcıya hiç gidilmez.
+        """
+        html, status = await HTMLHelper._hizli_get(url, headers)
+        if html and not HTMLHelper._cf_challenge_mi(html, status):
+            return html
+
+        # Challenge var (ya da düz çekim tamamen başarısız) -> tarayıcı dene
+        try:
+            return await HTMLHelper._playwright_get(url, headers)
+        except Exception as hata:
+            if html:
+                # Tarayıcı açılamadı ama düz içerik elimizde: onu kullan
+                print(f"[!] HTMLHelper: Playwright açılamadı ({hata!r}), düz HTTP yanıtı döndürülüyor.")
+                return html
+            raise
+
+    @staticmethod
+    async def _playwright_get(url: str, headers: Optional[Dict[str, str]] = None) -> str:
+        """Cloudflare Turnstile aşma (yalnızca challenge tespit edilirse çağrılır)."""
         async with async_playwright() as p:
             # Otomasyon tespit bayraklarını ezen Chromium argümanları
             args = [

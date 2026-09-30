@@ -35,6 +35,7 @@ class DiziBox(PluginBase):
         "dbxu"          : "1722403730363"
     }
     main_page = {
+        "Ana Sayfa"            : main_url,
         "Son Bölümler"      : f"{main_url}/tum-bolumler/page/SAYFA/",
         "Popüler Diziler"   : f"{main_url}/tum-bolumler/page/SAYFA/?tip=populer",
         "Yeni Eklenenler"   : f"{main_url}/dizi-arsivi/page/SAYFA/",

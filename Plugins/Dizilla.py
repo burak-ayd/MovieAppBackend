@@ -72,6 +72,7 @@ class Dizilla(PluginBase):
     }
 
     main_page = {
+        "Ana Sayfa": main_url,
         "Yeni Eklenen Bölümler": f"{main_url}/tum-bolumler",
         "Yeni Eklenen Diziler": f"{main_url}/arsiv",
         "Aile": f"{main_url}/api/bg/findSeries?releaseYearStart=1900&releaseYearEnd=2024&imdbPointMin=5&imdbPointMax=10&categoryIdsComma=15&countryIdsComma=&orderType=date_desc&languageId=-1&currentPage=1&currentPageCount=24&queryStr=&categorySlugsComma=&countryCodesComma=",
@@ -433,11 +434,13 @@ class Dizilla(PluginBase):
 
     async def get_main_page(self, page: int = 1, url: str = "", category: str = "") -> List[MainPageResult]:
         """Kotlin getMainPage: arşiv, findSeries API ya da ham HTML dalına yönlendirir."""
-        data = (url or "").strip() or self.main_page["Yeni Eklenen Bölümler"]
+        data = (url or "").strip() or self.main_url
         page = max(1, int(page or 1))
 
         try:
-            if "api/bg/findSeries" in data:
+            if data.rstrip("/") == self.main_url.rstrip("/"):
+                results = await self._home_page(category)
+            elif "api/bg/findSeries" in data:
                 results = await self._find_series_page(page, data, category)
             elif "/arsiv" in data:
                 results = await self._archive_page(page, category)
@@ -585,6 +588,69 @@ class Dizilla(PluginBase):
                 release_date=item.get("release_date"),
                 rating=str(item.get("imdb_point")) if item.get("imdb_point") else None,
                 plugin=self.name,
+            ))
+
+        return results
+
+    async def _home_page(self, category: str = "") -> List[MainPageResult]:
+        """Ana sayfa: bölüm bloklarındaki (`h2` başlıklı grid'ler) dizi kartları.
+
+        Kök sayfada `?page=` çalışmaz; her bölüm kendi sabit listesini gösterir.
+        """
+        html = await self._fetch_text(self.main_url)
+        if not html:
+            return []
+
+        soup = BeautifulSoup(html, "html.parser")
+        results: List[MainPageResult] = []
+
+        for anchor in soup.select('a[href^="/dizi/"][title]'):
+            href = anchor.get("href") or ""
+            if not href:
+                continue
+
+            # Bölüm adı: karttan önce gelen en yakın h2
+            bolum = ""
+            for onceki in anchor.find_all_previous(["h2"], limit=1):
+                bolum = (onceki.get_text(strip=True) or "")[:60]
+
+            baslik = (anchor.get("title") or "").replace(" izle", "").strip()
+            if not baslik:
+                baslik_tag = anchor.select_one("h3")
+                baslik = baslik_tag.get_text(strip=True) if baslik_tag else ""
+            if not baslik:
+                continue
+
+            poster_tag = anchor.select_one("img")
+            poster = None
+            if poster_tag:
+                poster = poster_tag.get("src") or poster_tag.get("data-src")
+                poster = self.fix_url(poster) if poster else None
+
+            # Yıl: `span.text-white` (ör. "2026"), yoksa `img alt` içindeki yıl
+            yil = None
+            yil_tag = anchor.select_one("span.text-white")
+            if yil_tag:
+                m = re.search(r"\b(19\d{2}|20\d{2})\b", yil_tag.get_text(strip=True))
+                yil = int(m.group(1)) if m else None
+            if yil is None:
+                m = re.search(r"\b(19\d{2}|20\d{2})\b", anchor.get("alt") or "")
+                yil = int(m.group(1)) if m else None
+
+            # Puan: `h4` (ör. "7.7")
+            puan = None
+            puan_tag = anchor.select_one("h4")
+            if puan_tag:
+                m = re.search(r"\d+[.,]\d+", puan_tag.get_text(strip=True))
+                puan = m.group(0).replace(",", ".") if m else None
+
+            results.append(MainPageResult(
+                title        = baslik,
+                url          = self.fix_url(href),
+                category     = category or bolum,
+                poster       = poster,
+                release_date = str(yil) if yil else None,
+                rating       = puan,
             ))
 
         return results
