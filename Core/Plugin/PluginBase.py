@@ -19,7 +19,7 @@ class PluginBase(ABC):
 
     async def url_update(self, new_url: str):
         self.favicon   = f"https://www.google.com/s2/favicons?domain={new_url}&sz=64"
-        self.main_page = {url.replace(self.main_url, new_url): category for url, category in self.main_page.items()}
+        self.main_page = {category: url.replace(self.main_url, new_url) for category, url in self.main_page.items()}
         self.main_url  = new_url
 
     def __init__(self):

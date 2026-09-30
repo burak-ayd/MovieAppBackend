@@ -1,20 +1,17 @@
 # Bu araç @keyiflerolsun tarafından | @KekikAkademi için yazılmıştır.
-"""Eklenti test / oynatma harness'i.
+"""Tek dosyadan tüm eklentileri test etme / oynatma aracı.
 
-tests/ altındaki her eklenti testi (DizillaTest, DiziboxTest, HDFilmcehennemiTest)
-bu modülü kullanır; böylece akış tek yerde yaşar ve üçü de aynı şekilde çalışır.
+    python tests/EklentiTestAraci.py                    # eklenti listesinden seç, menüyle test et
+    python tests/EklentiTestAraci.py --eklenti Dizilla  # eklentiyi doğrudan seç
+    python tests/EklentiTestAraci.py --eklenti Dizibox --arama "silo"
+    python tests/EklentiTestAraci.py --url "<bölüm linki>"          # eklenti URL'den tespit edilir
+    python tests/EklentiTestAraci.py --url "<embed linki>" --coz    # sadece extractor çözümü
+    python tests/EklentiTestAraci.py --eklenti HDFilmCehennemi --kategori "Aksiyon" --sayfa 2
+    python tests/EklentiTestAraci.py --eklenti Dizilla --url "<link>" --otomatik --saniye 20
 
 Akış:
-    ana sayfa / kategori  ->  arama  ->  içerik detayı  ->  (dizi) sezon + bölüm
-    ->  load_links  ->  (str ise) extractor  ->  ExtractResult  ->  mpv
-
-Kullanım (her test dosyası aynı bayrakları destekler):
-    python tests/DizillaTest.py
-    python tests/DizillaTest.py --arama "breaking bad"
-    python tests/DizillaTest.py --kategori "Aksiyon" --sayfa 2
-    python tests/DizillaTest.py --url "<bölüm linki>" --otomatik
-    python tests/DizillaTest.py --url "<link>" --otomatik --oynat --saniye 20
-    python tests/DizillaTest.py --url "<embed linki>" --coz
+    eklenti seçimi -> ana sayfa / kategori / arama -> içerik detayı -> (dizi) sezon + bölüm
+    -> load_links -> (str ise) extractor -> ExtractResult -> mpv
 """
 
 import argparse
@@ -104,19 +101,86 @@ def play_media_sinirli(medya_yonetici: MediaManager, extract_data: ExtractResult
 # ===================================================================== #
 
 class EklentiTestAraci:
-    """Bir eklenti için arama -> detay -> bölüm -> extractor -> mpv akışını yürütür."""
+    """Seçilen eklenti için arama -> detay -> bölüm -> extractor -> mpv akışını yürütür.
 
-    def __init__(self, eklenti_adi: str, aciklama: str = ""):
+    Eklenti adı verilmezse menüden sorulur; tek giriş noktası bütün eklentileri test eder.
+    """
+
+    def __init__(self, eklenti_adi: str = "", aciklama: str = ""):
         self.eklenti_adi = eklenti_adi
-        self.aciklama = aciklama or eklenti_adi
+        self.aciklama = aciklama
         self.medya_yonetici = MediaManager()
         self.cikaricilar_yonetici = ExtractorManager()
         self.eklentiler_yonetici = PluginManager()
-        self.eklenti = self.eklentiler_yonetici.select_plugin(eklenti_adi)
+        self.eklenti = None
         self.bolum_baslik = ""
         self.otomatik = False
         self.oynat = False
         self.saniye: Optional[int] = None
+
+        if eklenti_adi:
+            self._eklenti_yukle(eklenti_adi)
+
+    # ------------------------------------------------------------------ #
+    # Eklenti seçimi
+    # ------------------------------------------------------------------ #
+
+    def _eklenti_listesi(self) -> List[str]:
+        return self.eklentiler_yonetici.get_plugin_names()
+
+    def _eklenti_yukle(self, ad: str, sessiz: bool = False) -> bool:
+        """Adla (ya da domainle) eklentiyi seçer. `sessiz=True` ise (URL tespiti) hata basmaz."""
+        eklenti = self.eklentiler_yonetici.select_plugin(ad)
+        if eklenti is None:
+            eklenti = self.eklentiler_yonetici.find_plugin_by_url(ad)
+
+        if eklenti is None:
+            if not sessiz:
+                konsol.print(f"[bold red]'{ad}' eklentisi yüklenemedi![/bold red]")
+            return False
+
+        self.eklenti = eklenti
+        self.eklenti_adi = eklenti.name
+        self.bolum_baslik = ""
+        return True
+
+    async def _eklenti_sec(self) -> bool:
+        """Menüden eklenti seçimi."""
+        isimler = self._eklenti_listesi()
+        if not isimler:
+            konsol.print("[bold red]Yüklenmiş eklenti bulunamadı![/bold red]")
+            return False
+
+        secim = await select_from_fuzzy(
+            message = "Hangi eklentiyi test etmek istiyorsunuz?",
+            choices = [{"name": self._eklenti_etiket(ad), "value": ad} for ad in isimler],
+        )
+        if secim is None:
+            return False
+
+        if not self._eklenti_yukle(secim):
+            return False
+
+        konsol.print(f"[green]Seçilen eklenti:[/green] {self.eklenti.name} ({self.eklenti.main_url})")
+        return True
+
+    def _eklenti_etiket(self, ad: str) -> str:
+        """Seçim listesinde okunabilir etiket: `Dizilla — dizi izleme (dizilla.now)`."""
+        eklenti = self.eklentiler_yonetici.select_plugin(ad)
+        if not eklenti:
+            return ad
+        parcalar = [ad]
+        if getattr(eklenti, "description", None):
+            parcalar.append(eklenti.description)
+        if getattr(eklenti, "main_url", None):
+            parcalar.append(eklenti.main_url.replace("https://", ""))
+        return " — ".join(parcalar)
+
+    def _eklenti_listesini_yaz(self) -> None:
+        """Terminalsiz modda eklenti seçilmediyse kullanılabilir listeyi gösterir."""
+        konsol.print("[bold red]Eklenti seçilmedi. --eklenti <ad> kullan ya da şunlardan birini seç:[/bold red]")
+        for ad in self._eklenti_listesi():
+            konsol.print(f"   [cyan]{ad}[/cyan] — {self._eklenti_etiket(ad)}")
 
     # ------------------------------------------------------------------ #
     # Yaşam döngüsü
@@ -131,13 +195,19 @@ class EklentiTestAraci:
                 await self.eklentiler_yonetici.close_plugins()
 
     def _argumanlari_cozumle(self) -> argparse.Namespace:
-        parser = argparse.ArgumentParser(description=f"{self.eklenti_adi} test / oynatma aracı")
+        parser = argparse.ArgumentParser(
+            description="Eklenti test / oynatma aracı",
+            epilog="Örnek: python tests/EklentiTestAraci.py --eklenti Dizilla --arama \"breaking bad\"",
+        )
+        parser.add_argument("--eklenti", default="", help="Test edilecek eklenti (verilmezse menüden sorulur)")
         parser.add_argument("--arama", help="Arama sorgusu")
         parser.add_argument("--kategori", help="Ana sayfa kategorisi")
         parser.add_argument("--sayfa", type=int, default=1, help="Kategori sayfası")
-        parser.add_argument("--url", help="Doğrudan dizi / bölüm / embed linki")
-        parser.add_argument("--coz", action="store_true", help="Sadece extractor'ı çalıştır, oynatma")
-        parser.add_argument("--oynat", action="store_true", help="Extractor sonrası mpv'de oynat")
+        parser.add_argument("--url", help="Doğrudan dizi / bölüm / embed linki (eklenti URL'den tespit edilir)")
+        parser.add_argument("--coz", action="store_true",
+                            help="Sadece extractor'ı çalıştır, mpv açma (varsayılan: oynatır)")
+        parser.add_argument("--oynat", action="store_true",
+                            help="Extractor sonrası mpv'de oynat (varsayılan davranış)")
         parser.add_argument("--saniye", type=int, help="Oynatma süresi (saniye)")
         parser.add_argument("--otomatik", action="store_true",
                             help="Terminalsiz kullanım: seçim sorulmaz, ilk çözülebilir kaynak kullanılır")
@@ -151,13 +221,27 @@ class EklentiTestAraci:
             from Core.Helpers.Kontrol import MainUrlGuncelleyici
             MainUrlGuncelleyici().guncelle()
 
-        if not self.eklenti:
-            konsol.print(f"[bold red]'{self.eklenti_adi}' eklentisi yüklenemedi![/bold red]")
-            return
-
         self.otomatik = args.otomatik
         self.saniye = args.saniye
-        self.oynat = args.oynat or bool(args.saniye)
+        # Varsayılan: oynat. Oynatma yalnızca --coz ile kapatılır (menüden "İzle"
+        # seçildiğinde de mpv açılmalı).
+        self.oynat = not args.coz
+
+        # Eklenti çözümü: --eklenti > URL'den tespit > menüden sor
+        if args.eklenti:
+            self._eklenti_yukle(args.eklenti)
+        elif args.url and not self.eklenti:
+            self._eklenti_yukle(args.url, sessiz=True)   # domain eşleşmesi
+
+        # Eklenti zorunlu: extractor'a gönderilen Referer çözümün şartı.
+        # Örn. pichive kendi origin'ini (four.pichive.online) reddediyor, yalnızca
+        # dizilla.now refererini kabul ediyor; bu yüzden plugin olmadan link çözülemez.
+        if not self.eklenti:
+            if self.otomatik:                      # menü açılamaz
+                self._eklenti_listesini_yaz()
+                return
+            if not await self._eklenti_sec():
+                return
 
         # 1) Doğrudan link
         if args.url:
@@ -180,8 +264,14 @@ class EklentiTestAraci:
         # 4) Etkileşimli menü
         while True:
             secim = await select_from_fuzzy(
-                message = f"{self.eklenti_adi} test aracı - ne yapmak istersiniz?",
-                choices = ["Ana Sayfa / Kategori", "Arama", "Çıkış"],
+                message = f"{self.eklenti.name} test aracı - ne yapmak istersiniz?",
+                choices = [
+                    "Ana Sayfa / Kategori",
+                    "Arama",
+                    "Ham Embed Linki (Extractor Testi)",
+                    "Eklenti Değiştir",
+                    "Çıkış",
+                ],
             )
             match secim:
                 case "Ana Sayfa / Kategori":
@@ -190,8 +280,27 @@ class EklentiTestAraci:
                     sorgu = input("Arama: ").strip()
                     if sorgu:
                         await self._arama_yap(sorgu)
+                case "Ham Embed Linki (Extractor Testi)":
+                    await self._ham_link_istene()
+                case "Eklenti Değiştir":
+                    await self._eklenti_sec()
                 case _:
                     break
+
+    async def _ham_link_istene(self) -> None:
+        """Extractor'ı tek başına denemek için ham embed linki ister."""
+        link = input("Embed linki (örn. https://four.pichive.online/iframe.php?v=...): ").strip()
+        if not link:
+            return
+
+        # Link başka bir eklentiye aitse kullanıcıyı bilgilendir: referer seçili
+        # eklentiden geliyor (pichive sadece dizilla.now refererini kabul eder).
+        tespit = self.eklentiler_yonetici.find_plugin_by_url(link)
+        if tespit and self.eklenti and tespit is not self.eklenti:
+            konsol.print(f"[yellow]Link {tespit.name} eklentisine ait; "
+                         f"şu anki {self.eklenti.name} refereri kullanılacak.[/yellow]")
+
+        await self._baglanti_ile_oynat(link, oynat=self.oynat)
 
     # ------------------------------------------------------------------ #
     # Adım adım akış
@@ -351,19 +460,22 @@ class EklentiTestAraci:
             konsol.print("[bold red]Hiçbir bağlantı çözülemedi (token süreleri dolmuş olabilir).[/bold red]")
             return
 
-        harita: Dict[Any, str] = {}
+        # NOT: ExtractResult pydantic modelidir, hashlenemez; bu yüzden sözlük (dict)
+        # anahtarı olarak kullanılamaz. Liste halinde {name, value} çiftleri kurulur.
+        secenekler: List[Dict[str, Any]] = []
         for aday in baglantilar:
             if isinstance(aday, ExtractResult):
-                harita[aday] = f"{aday.name} (plugin) » {aday.url[:70]}"
-                continue
-            cikarici = self.cikaricilar_yonetici.find_extractor(aday)
-            harita[aday] = (f"{cikarici.name} » {aday[:70]}" if cikarici else f"{aday} (çıkarıcı yok)")
+                etiket = f"{aday.name} (plugin) » {aday.url[:70]}"
+            else:
+                cikarici = self.cikaricilar_yonetici.find_extractor(aday)
+                etiket = f"{cikarici.name} » {aday[:70]}" if cikarici else f"{aday} (çıkarıcı yok)"
+            secenekler.append({"name": etiket, "value": aday})
 
         secim = await select_from_fuzzy(message = "Ne yapmak istersiniz?", choices = ["İzle", "Geri"])
         if secim != "İzle":
             return
 
-        secilen = await select_from_fuzzy(message = "İzlemek için bir bağlantı seçin:", choices=harita)
+        secilen = await select_from_fuzzy(message = "İzlemek için bir bağlantı seçin:", choices=secenekler)
         if secilen is None:
             return
         if isinstance(secilen, ExtractResult):
@@ -378,8 +490,9 @@ class EklentiTestAraci:
             konsol.print(f"[bold red]Uygun Extractor bulunamadı:[/bold red] {link}")
             return None
 
+        referer = f"{self.eklenti.main_url}/" if self.eklenti else ""
         try:
-            veri = await cikarici.extract(link, referer=f"{self.eklenti.main_url}/")
+            veri = await cikarici.extract(link, referer=referer)
         except Exception as hata:
             konsol.print(f"[bold red]{cikarici.name} » hata: {hata}[/bold red]")
             return None
@@ -429,9 +542,10 @@ class EklentiTestAraci:
         if veri.referer and not (veri.headers or {}).get("Referer"):
             self.medya_yonetici.set_headers({"Referer": veri.referer})
 
-        baslik = self.medya_yonetici.get_title() or self.eklenti.name
-        if self.eklenti.name not in baslik:
-            baslik = f"{self.eklenti.name} | {baslik}"
+        eklenti_adi = self.eklenti.name if self.eklenti else "Extractor"
+        baslik = self.medya_yonetici.get_title() or eklenti_adi
+        if eklenti_adi not in baslik:
+            baslik = f"{eklenti_adi} | {baslik}"
         if self.bolum_baslik:
             baslik = f"{baslik} | {self.bolum_baslik}"
         if veri.name not in baslik:
@@ -439,6 +553,10 @@ class EklentiTestAraci:
         self.medya_yonetici.set_title(baslik)
 
 
-def calistir(eklenti_adi: str, aciklama: str = "") -> None:
-    """Test dosyalarının kullandığı giriş noktası."""
+def calistir(eklenti_adi: str = "", aciklama: str = "") -> None:
+    """Tek giriş noktası: eklenti verilmezse menüden sorulur."""
     asyncio.run(EklentiTestAraci(eklenti_adi, aciklama).calistir())
+
+
+if __name__ == "__main__":
+    calistir()
