@@ -17,6 +17,7 @@ Akış:
 import argparse
 import asyncio
 import os
+import re
 import subprocess
 import sys
 import tempfile
@@ -487,6 +488,19 @@ class EklentiTestAraci:
         """Ham linki uygun çıkarıcıyla çözer (bazı çıkarıcılar liste döner)."""
         cikarici: Optional[ExtractorBase] = self.cikaricilar_yonetici.find_extractor(link)
         if not cikarici:
+            # Bazı eklentiler extractor gerektirmeyen doğrudan medya adresi döner
+            # (örn. Sinewix -> .mkv). API bu durumda "Direct Link" olarak döner.
+            if re.search(r"\.(mkv|mp4|m3u8|webm|avi|m4v|mov|ts)(\?|$)", link or "", re.IGNORECASE):
+                konsol.print(f"[dim]Doğrudan medya bağlantısı, extractor gerekmiyor:[/dim] {link}")
+                dogrudan = ExtractResult(
+                    name="Direct Link",
+                    url=link,
+                    referer=f"{self.eklenti.main_url}/" if self.eklenti else "",
+                    headers={"Referer": f"{self.eklenti.main_url}/"} if self.eklenti else {},
+                    subtitles=[],
+                )
+                return await self._oynat_extract(dogrudan, oynat=oynat)
+
             konsol.print(f"[bold red]Uygun Extractor bulunamadı:[/bold red] {link}")
             return None
 

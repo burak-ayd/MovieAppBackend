@@ -10,12 +10,18 @@ Endpoint'ler:
 from __future__ import annotations
 
 import asyncio
+import re
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
 
 from api.deps import get_extractor_manager, get_plugin_manager
+
+# Doğrudan oynatılabilen medya uzantıları (Sinewix gibi JSON eklentiler .mkv döndürür).
+_DOGRUDAN_MEDYA_RE = re.compile(
+    r"\.(mkv|mp4|m3u8|webm|avi|m4v|mov|ts|flv|mpd)(\?|#|$)", re.IGNORECASE
+)
 from Core.Extractor.ExtractorModels import ExtractResult
 
 router = APIRouter(prefix="/api", tags=["extractors"])
@@ -41,18 +47,32 @@ def _serialize(obj: Any) -> Any:
 async def _process_extract(url: str, referer: str | None = None) -> list[dict[str, Any]]:
     """
     Verilen URL'yi çözümler:
-    1. Doğrudan bir extractor URL'si ise ilgili extractor ile çözer.
-    2. Bir plugin (film/dizi içerik sayfası) linki ise, eklentinin tüm izleme linklerini
+    1. Doğrudan medya dosyası (.mkv/.mp4/...) ise kendisi oynatılır.
+    2. Doğrudan bir extractor URL'si ise ilgili extractor ile çözer.
+    3. Bir plugin (film/dizi içerik sayfası) linki ise, eklentinin tüm izleme linklerini
        otomatik toplayıp her birini ilgili extractor ile paralel olarak çözer.
     """
     clean_url = (url or "").strip()
     if not clean_url:
         raise HTTPException(status_code=400, detail="URL boş olamaz.")
 
+    # 1. URL doğrudan medya dosyası mı? (Sinewix .mkv vb.) -> extractor gerekmez.
+    if _DOGRUDAN_MEDYA_RE.search(clean_url):
+        return [{
+            "extractor": "Direct",
+            "result": {
+                "name": "Direct Link",
+                "url": clean_url,
+                "referer": referer or clean_url,
+                "headers": ({"Referer": referer} if referer else {}),
+                "subtitles": [],
+            },
+        }]
+
     em = get_extractor_manager()
     pm = get_plugin_manager()
 
-    # 1. URL doğrudan bilinen bir extractor URL'si mi? (Rapidrame, Close, Vidmoly vb.)
+    # 2. URL doğrudan bilinen bir extractor URL'si mi? (Rapidrame, Close, Vidmoly vb.)
     direct_extractor = em.find_extractor(clean_url)
     if direct_extractor:
         try:
@@ -64,7 +84,7 @@ async def _process_extract(url: str, referer: str | None = None) -> list[dict[st
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Medya çıkarılırken hata: {e}")
 
-    # 2. URL bir eklentiye ait içerik (film/dizi) sayfası mı?
+    # 3. URL bir eklentiye ait içerik (film/dizi) sayfası mı?
     plugin = pm.find_plugin_by_url(clean_url)
     if plugin:
         try:
@@ -150,7 +170,7 @@ async def _process_extract(url: str, referer: str | None = None) -> list[dict[st
 
         return valid_results
 
-    # 3. Ne extractor ne de plugin eşleştiyse
+    # 4. Ne extractor ne de plugin eşleştiyse
     raise HTTPException(
         status_code=404,
         detail=f"Bu URL için uygun bir eklenti veya extractor bulunamadı: {clean_url}",
