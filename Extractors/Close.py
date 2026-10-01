@@ -79,6 +79,26 @@ class CloseExtractor(ExtractorBase):
 
         return text
 
+    async def _subtitle_gecerli_mi(self, url: str, headers: dict) -> bool:
+        """Altyazı adresinin gerçekten indirilebilir olup olmadığını doğrular.
+
+        NOT: Embed sayfasındaki `tracks` bloğu `hdfilmcehennemi.mobi/vtt/...`
+        adresleri üretiyor ancak bu dosyalar sunucuda **yok** (her zaman 404).
+        HLS akışının içinde `TYPE=SUBTITLE` girdisi de bulunmuyor; yalnızca
+        Türkçe/İngilizce ses track'i var. Bu yüzden 404 dönen kaynakları
+        API'ye hiç girmemesi için burada eliyoruz.
+
+        Yalnızca HTTP 200 + boş olmayan gövde geçerli sayılır; `HEAD` bazı
+        sunucularda desteklenmediği için gerekirse `GET` ile doğrulanır.
+        """
+        try:
+            cevap = await self.client.get(url, headers=headers, follow_redirects=True)
+            if cevap.status_code != 200:
+                return False
+            return bool(cevap.content) and len(cevap.content) > 40
+        except Exception:
+            return False
+
     async def extract(
         self, url: str, referer: Optional[str] = None, **kwargs: Any
     ) -> Optional[ExtractResult]:
@@ -102,6 +122,8 @@ class CloseExtractor(ExtractorBase):
                 return None
 
             # Altyazıları ayıkla
+            # Embed sayfası 3 altyazı bildiriyor ama dosyalar sunucuda yok (404).
+            # Doğrulama eklenerek ölü kaynaklar API yanıtına hiç girmiyor.
             subtitles: List[Subtitle] = []
             tracks_match = re.search(
                 r'tracks\s*:\s*(\[.*?\])\s*(?:,|\n|;)', html_content, re.DOTALL
@@ -110,18 +132,33 @@ class CloseExtractor(ExtractorBase):
                 try:
                     tracks = json.loads(tracks_match.group(1))
                     for t in tracks:
-                        if t.get("kind") in ["captions", "subtitles"] and t.get("file"):
-                            sub_path = t.get("file").replace(r"\/", "/").replace("\\", "")
-                            if sub_path.startswith("/"):
-                                sub_url = f"https://hdfilmcehennemi.mobi{sub_path}"
-                            else:
-                                sub_url = sub_path
-                            subtitles.append(
-                                Subtitle(
-                                    name=t.get("label") or t.get("language") or "Türkçe",
-                                    url=sub_url,
-                                )
+                        if t.get("kind") not in ["captions", "subtitles"] or not t.get("file"):
+                            continue
+                        sub_path = t["file"].replace(r"\/", "/").replace("\\", "")
+                        if sub_path.startswith("/"):
+                            sub_url = f"https://hdfilmcehennemi.mobi{sub_path}"
+                        else:
+                            sub_url = sub_path
+
+                        sub_headers = {
+                            "User-Agent": headers["User-Agent"],
+                            "Referer": f"https://{embed_domain}/",
+                        }
+                        if not await self._subtitle_gecerli_mi(sub_url, sub_headers):
+                            debug_log(f"[!] {self.name} altyazi erisilemez (404), atlandi: "
+                                      f"{sub_path.rsplit('/', 1)[-1][:60]}")
+                            continue
+
+                        subtitles.append(
+                            Subtitle(
+                                name=t.get("label") or t.get("language") or "Türkçe",
+                                url=sub_url,
                             )
+                        )
+
+                    if not subtitles:
+                        debug_log(f"[!] {self.name} HLS'te TYPE=SUBTITLE yok; "
+                                  f"Türkce ses track'i kullanilabilir.")
                 except Exception as e:
                     debug_log(f"[!] {self.name} altyazı ayrıştırma hatası: {e}")
 
