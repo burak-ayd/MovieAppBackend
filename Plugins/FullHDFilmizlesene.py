@@ -98,7 +98,7 @@ class FullHDFilmizlesene(PluginBase):
     language    = "tr"
     main_url    = "https://www.fullhdfilmizlesene.now"
     description = "FullHDFilmizlesene - Full HD film izleme sitesi"
-    favicon = f"https://www.google.com/s2/favicons?domain={main_url}&sz=64"
+    favicon = f"https://www.google.com/s2/favicons?domain={main_url}&sz=256"
 
 # Ekran görüntüsünde her kategori 18 film dönüyor; sayfa sonu bu sayıda bitiyor.
     sayfa_boyutu = 18

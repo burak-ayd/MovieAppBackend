@@ -88,7 +88,7 @@ class SelcukFlix(PluginBase):
     language = "tr"
     main_url = "https://selcukflix.com"
     description = "SelcukFlix - Film ve dizi izleme platformu"
-    favicon = f"https://www.google.com/s2/favicons?domain={main_url}&sz=64"
+    favicon = f"https://www.google.com/s2/favicons?domain={main_url}&sz=256"
 
     # Kotlin: PRIVATE_AES_KEY / IvParameterSpec(ByteArray(16)) / AES-CBC-PKCS5Padding
     # (Dizilla ile aynı anahtar)

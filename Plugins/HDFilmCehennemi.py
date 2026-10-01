@@ -17,7 +17,7 @@ class HDFilmCehennemi(PluginBase):
     name = "HDFilmCehennemi"
     language = "tr"
     main_url = "https://www.hdfilmcehennemi.nl"
-    favicon = f"https://www.google.com/s2/favicons?domain={main_url}&sz=64"
+    favicon = f"https://www.google.com/s2/favicons?domain={main_url}&sz=256"
     description = "Türkiye'nin en hızlı hd film izleme sitesi"
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36",

@@ -14,11 +14,11 @@ class PluginBase(ABC):
     language: str = "tr"
     main_url: str = "https://example.com"
     description: str = "No description provided."
-    favicon     = f"https://www.google.com/s2/favicons?domain={main_url}&sz=64"
+    favicon     = f"https://www.google.com/s2/favicons?domain={main_url}&sz=256"
     main_page: Dict[str, str] = {}
 
     async def url_update(self, new_url: str):
-        self.favicon   = f"https://www.google.com/s2/favicons?domain={new_url}&sz=64"
+        self.favicon   = f"https://www.google.com/s2/favicons?domain={new_url}&sz=256"
         self.main_page = {category: url.replace(self.main_url, new_url) for category, url in self.main_page.items()}
         self.main_url  = new_url
 

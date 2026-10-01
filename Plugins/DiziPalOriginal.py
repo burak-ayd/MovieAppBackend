@@ -83,9 +83,9 @@ class DiziPalOriginal(PluginBase):
 
     name        = "DiziPalOriginal"
     language    = "tr"
-    main_url    = "https://dizipal2134.com"
+    main_url    = "https://dizipal2135.com"
     description = "DiziPal - Dizi ve film izleme platformu"
-    favicon     = f"https://www.google.com/s2/favicons?domain={main_url}&sz=64"
+    favicon     = f"https://www.google.com/s2/favicons?domain={main_url}&sz=256"
 
     # Kategori listesi: "Ana Sayfa" (kök) + 14 kategori. Sayfalama `?page=N`.
     main_page: Dict[str, str] = kategori_sayfasi(main_url)
@@ -238,6 +238,7 @@ class DiziPalOriginal(PluginBase):
                 season     = sezon,
                 episode    = bolum_no,
                 media_type = "Dizi",
+                
             ))
         return kartlar
 

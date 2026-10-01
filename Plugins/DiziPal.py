@@ -83,7 +83,7 @@ class DiziPal(PluginBase):
     language    = "tr"
     main_url    = "https://dizipal1584.com"
     description = "DiziPal - Dizi ve film izleme platformu"
-    favicon     = f"https://www.google.com/s2/favicons?domain={main_url}&sz=64"
+    favicon     = f"https://www.google.com/s2/favicons?domain={main_url}&sz=256"
 
     main_page: Dict[str, str] = kategori_sayfasi(main_url)
 

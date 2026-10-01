@@ -41,7 +41,7 @@ class Dizilla(PluginBase):
     language = "tr"
     main_url = "https://dizilla.now"
     description = "Dizilla - Yabancı dizi izleme platformu"
-    favicon = f"https://www.google.com/s2/favicons?domain={main_url}&sz=64"
+    favicon = f"https://www.google.com/s2/favicons?domain={main_url}&sz=256"
 
     # Kotlin: private val privateAESKey / IvParameterSpec(ByteArray(16)) / AES-CBC-PKCS5Padding
     _private_aes_key = b"9bYMCNQiWsXIYFWYAu7EkdsSbmGBTyUI"

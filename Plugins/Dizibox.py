@@ -23,7 +23,7 @@ class DiziBox(PluginBase):
     name        = "DiziBox"
     language    = "tr"
     main_url    = "https://www.dizibox.live"
-    favicon     = f"https://www.google.com/s2/favicons?domain={main_url}&sz=64"
+    favicon     = f"https://www.google.com/s2/favicons?domain={main_url}&sz=256"
     description = "Yabancı Dizi izle, Tüm yabancı dizilerin yeni ve eski sezonlarını full hd izleyebileceğiniz elit site."
     headers = {
         "User-Agent": "Mozilla/5.0 (X11; Linux x86_64; rv:101.0) Gecko/20100101 Firefox/101.0",
@@ -225,7 +225,7 @@ class DiziBox(PluginBase):
                         description=description,
                         release_date=release_date,
                         rating=imdb,
-                        language=language,
+                        language="ALTYAZI",#language,
                         plugin=self.name,
                     )
                 )
