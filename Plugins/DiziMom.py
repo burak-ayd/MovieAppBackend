@@ -238,29 +238,47 @@ class DiziMom(PluginBase):
         return [k for k in (self._dizi_karti(k, category) for k in kutular) if k]
 
     async def search(self, query: str) -> list[SearchResult]:
-        istek = await self.httpx.get(
-            url=f"{self.main_url}/?s={query}",
-            headers={"Referer": f"{self.main_url}/"},
-            follow_redirects=True,
-            timeout=30.0,
-        )
-        if istek.status_code != 200:
-            return []
-
-        secici = Selector(istek.text)
-        results = []
-        for kutu in secici.css("div.single-item"):
-            kart = self._dizi_karti(kutu, "")
-            if not kart:
+        # Site arama uçlarını (/?s=) 403 ile engelliyor; bu durumda
+        # `?s=` yerine WordPress'in varsayılan arama yolunu deniyoruz.
+        for arama_url in (f"{self.main_url}/?s={query}",
+                          f"{self.main_url}/ara/?q={query}"):
+            try:
+                istek = await self.httpx.get(
+                    url=arama_url,
+                    headers={"Referer": f"{self.main_url}/"},
+                    follow_redirects=True,
+                    timeout=30.0,
+                )
+            except Exception as e:
+                print(f"[!] {self.name} arama hatası ({arama_url}): {e}")
                 continue
-            results.append(SearchResult(
-                title=kart.title,
-                url=kart.url,
-                poster=kart.poster,
-                media_type="series",
-                plugin=self.name,
-            ))
-        return results
+
+            if istek.status_code != 200:
+                print(f"[!] {self.name}: arama HTTP {istek.status_code} ({arama_url})")
+                continue
+
+            secici = Selector(istek.text)
+            kutular = secici.css("div.single-item")
+            if not kutular:
+                continue
+
+            results = []
+            for kutu in kutular:
+                kart = self._dizi_karti(kutu, "")
+                if not kart:
+                    continue
+                results.append(SearchResult(
+                    title=kart.title,
+                    url=kart.url,
+                    poster=kart.poster,
+                    media_type="series",
+                    plugin=self.name,
+                ))
+            if results:
+                return results
+
+        print(f"[!] {self.name}: '{query}' için arama sonucu alınamadı (site 403 döndürüyor).")
+        return []
 
     async def load_item(self, url: str) -> Optional[SeriesInfo]:
         return await self.load_series(url)
