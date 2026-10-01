@@ -7,7 +7,7 @@ Kekik
 httpx
 cloudscraper
 selectolax
-pydantic
+pydantic>=2.7.0
 InquirerPy
 yt-dlp
 httpx[http2]

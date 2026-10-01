@@ -12,7 +12,6 @@ load_dotenv()
 
 from Core.Plugin.PluginManager import PluginManager
 from Core.Extractor.ExtractorManager import ExtractorManager
-from Core.Libs.Supabase import SupabaseManager
 from Core.Libs.TMDB import TMDBClient
 from Core.Media.MediaHandler import MediaHandler
 
@@ -26,7 +25,6 @@ async def main():
     extractor_mgr = ExtractorManager()
     extractor_mgr.initialize()
 
-    db = SupabaseManager()
     tmdb = TMDBClient()
 
     print(f"[+] Yüklenen Siteler: {list(plugin_mgr.plugins.keys())}")

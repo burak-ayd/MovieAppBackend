@@ -81,7 +81,7 @@ class DiziPal(PluginBase):
 
     name        = "DiziPal"
     language    = "tr"
-    main_url    = "https://dizipal1584.com"
+    main_url    = "https://dizipal1586.com"
     description = "DiziPal - Dizi ve film izleme platformu"
     favicon     = f"https://www.google.com/s2/favicons?domain={main_url}&sz=256"
 
