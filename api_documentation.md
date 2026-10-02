@@ -1,5 +1,19 @@
 # MovieApp API
 
+**Base URL:** `https://movieapi.burakaydogan.net.tr`
+
+> ⚠️ Taban URL'in **sonuna `/api` yazmayın.** Uçlar kendi `/api` önekini
+> taşır; istemci ikinci kez eklemelidir.
+>
+> | Doğru | Yanlış |
+> |---|---|
+> | `https://movieapi.burakaydogan.net.tr/api/plugins` | `https://movieapi.burakaydogan.net.tr/api/api/plugins` |
+>
+> İkinci hâl sunucuya 404 döner. API bu durumu yakalar ve ne yapılması
+> gerektiğini söyleyen ayrıntılı bir teşhis mesajı döner.
+>
+> Bu dokümanda tüm uçlar taban URL'e **göreli** yazılmıştır.
+
 Test dosyalarındaki (`HDFilmcehennemiTest.py`, `DiziboxTest.py`) interaktif CLI işlevlerini HTTP endpoint'leri olarak sunan FastAPI tabanlı REST API. Ayrıca **kullanıcı hesabı** ve **cihazlar arası senkronizasyon** uçlarını barındırır.
 
 Plan: `SYNC_AUTH_PLAN.md` (Faz 1–3, backend).

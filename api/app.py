@@ -10,9 +10,16 @@ Ayrıca cihazlar arası senkronizasyon ve kullanıcı hesabı uçlarını barın
 Çalıştırma:
     uvicorn api.app:app --reload --host 0.0.0.0 --port 8000
 
-Dokümantasyon:
-    Swagger UI  → http://localhost:8000/docs
-    ReDoc       → http://localhost:8000/redoc
+Üretim adresi:
+    https://movieapi.burakaydogan.net.tr
+
+Dokümantasyon (üretim):
+    Swagger UI  → https://movieapi.burakaydogan.net.tr/docs
+    ReDoc       → https://movieapi.burakaydogan.net.tr/redoc
+
+Uçlar kendi `/api` önekini taşır. Taban URL'in sonuna `/api` YAZILMAZ:
+`https://movieapi.burakaydogan.net.tr/api/plugins`  ✅
+`https://movieapi.burakaydogan.net.tr/api/api/plugins`  ❌ (404)
 """
 
 from __future__ import annotations
@@ -67,6 +74,18 @@ from Core.Libs.SupabaseAuth import (  # noqa: E402
 
 
 # ── Yapılandırma ─────────────────────────────────────────────────────────────
+
+# İstemcilere gösterilen HERKESE AÇIK taban adresi.
+#
+# Yalnızca teşhis mesajlarında kullanılır (örn. istemci taban URL'in sonuna
+# yanlışlıkla /api eklediğinde ne yapması gerektiğini söyleyen 404 mesajı).
+# Sunucu hiçbir yerde bu adrese istek atmaz — dahili servisler `API_INTERNAL_URL`
+# veya `http://api:8000` üzerinden konuşur.
+#
+# Alan adı değişirse tek yerden güncellenebilsin diye ortam değişkeniyle
+# ezilebilir. Değiştirmek zorunda değilseniz bu sabit yeterlidir.
+PUBLIC_API_URL = (os.getenv("PUBLIC_API_URL") or "https://movieapi.burakaydogan.net.tr").rstrip("/")
+
 
 # CORS yalnızca web istemcisi içindir; React Native CORS motoru çalıştırmaz.
 # Bearer token kullanıldığı için `allow_credentials` kapalıdır: wildcard origin
@@ -313,7 +332,7 @@ async def _http_exception(request: Request, exc: StarletteHTTPException):
             detail = (
                 f"Yol bulunamadı: '{path}'. Taban URL'in sonuna '/api' yazılmış "
                 "görünüyor ve istemci yolu ikinci kez ekliyor. "
-                "EXPO_PUBLIC_API_URL değeri 'http://sunucu:8000' olmalı "
+                f"EXPO_PUBLIC_API_URL değeri '{PUBLIC_API_URL}' olmalı "
                 "(sonunda /api olmadan)."
             )
             break

@@ -98,11 +98,26 @@ services:
       TZ: ${TZ:-Europe/Istanbul}
       DEBUG: ${DEBUG:-0}
       API_WORKERS: ${API_WORKERS:-1}
+
+      # Herkese açık adres — yalnızca teşris mesajlarında kullanılır.
+      # API'nin kendi adresi: https://movieapi.burakaydogan.net.tr
+      PUBLIC_API_URL: ${PUBLIC_API_URL:-https://movieapi.burakaydogan.net.tr}
+
+      # ⚠️ API_INTERNAL_URL'YI PUBLIC DOMAIN YAPMAYIN. Buradaki adres
+      #    container→container (watcher → api) trafiğidir ve Docker ağında
+      #    çalışır. https://movieapi.burakaydogan.net.tr yazarsanız watcher her
+      #    yoklamada TLS + DNS + Coolify proxy'sine bağımlı hâle gelir; proxy
+      #    API konteyneriyle aynı ağda değilse veya TLS geçici olarak sorun
+      #    yaşarsa domain güncelleme SESSİZCE durur.
       API_INTERNAL_URL: ${API_INTERNAL_URL:-http://api:8000}
 
     ports:
-      # Coolify bu portu otomatik algılar ve domain yönlendirmesini buna bağlar.
-      # Yalnızca yerelde yayınlamak istiyorsanız host tarafını 127.0.0.1 yapın.
+      # Coolify bu portu otomatik algılar ve domain yönlendirmesini buna bağlar:
+      # movieapi.burakaydogan.net.tr → 8000.
+      #
+      # ⚠️ API_BIND'i 127.0.0.1 YAPMAYIN (yerel override hariç): Coolify'in
+      #    proxy'si konteynere published port üzerinden bağlanır; localhost'a
+      #    bağlarsanız domain dışarıdan erişilemez olur.
       - "${API_BIND:-0.0.0.0}:${API_PORT:-8000}:8000"
 
     healthcheck:
