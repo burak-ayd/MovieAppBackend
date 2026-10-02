@@ -58,6 +58,60 @@ class HDFilmCehennemi(PluginBase):
         slug = slug.strip("-")
         return slug or str(uuid.uuid4())
 
+    @staticmethod
+    def _en_yuksek_srcset(srcset: Optional[str]) -> Optional[str]:
+        """
+        srcset değerinden en yüksek yoğunluklu gerçek görsel adresini döndürür.
+
+        Site görselleri `... 1x, ...@2x.webp 2x` biçiminde bildiriyor; @2x
+        sürümü yalnızca bu srcset içinde varsa güvenilir biçimde bulunabilir.
+        Lazy-load sayfalarında srcset bazen bulanık base64 placeholder içerdiği
+        için `data:` URI taşıyan srcset tümüyle yok sayılır.
+        """
+        if not srcset or "data:" in srcset:
+            return None
+
+        en_iyi_adres = None
+        en_iyi_yogunluk = 0.0
+
+        for parca in srcset.split(","):
+            parca = parca.strip().split()
+            if not parca:
+                continue
+
+            adres = parca[0]
+            yogunluk = 1.0
+            if len(parca) > 1:
+                try:
+                    yogunluk = float(parca[1].lower().rstrip("x"))
+                except ValueError:
+                    yogunluk = 1.0
+
+            if en_iyi_adres is None or yogunluk > en_iyi_yogunluk:
+                en_iyi_adres, en_iyi_yogunluk = adres, yogunluk
+
+        return en_iyi_adres
+
+    def poster_url(self, kap: Selector, img_css: str = "img") -> Optional[str]:
+        """
+        Poster adresini, srcset içinde bildirilen en yüksek çözünürlüklü (@2x) sürümden alır.
+
+        Öncelik sırası: data-srcset -> srcset -> data-src -> src
+        (data: URI placeholder içeren adresler atlanır.)
+        """
+        for img in kap.css(img_css):
+            adaylar = (
+                self._en_yuksek_srcset(img.attrib.get("data-srcset")),
+                self._en_yuksek_srcset(img.attrib.get("srcset")),
+                img.attrib.get("data-src"),
+                img.attrib.get("src"),
+            )
+            for aday in adaylar:
+                if aday and not aday.strip().lower().startswith("data:"):
+                    return self.fix_url(aday.strip())
+
+        return None
+
     async def get_main_page(self, page: int = 1, url: str = "", category: str = "") -> list[MainPageResult]:
         if not url or url == self.main_url+ "/" or url == self.main_url:
             url = f"{self.main_url}/load/page/{page}/home"
@@ -91,7 +145,7 @@ class HDFilmCehennemi(PluginBase):
                 category=category,
                 title=veri.css("strong.poster-title::text").get(),
                 url=self.fix_url(veri.css("::attr(href)").get()),
-                poster=self.fix_url(veri.css("img::attr(data-src)").get() or veri.css("img::attr(src)").get()),
+                poster=self.poster_url(veri),
                 language=veri.css("div.poster-info > span.poster-lang > span::text").get().strip() if veri.css("div.poster-info > span.poster-lang > span::text").get() else None,
                 release_date=veri.css("div.poster-meta > span::text").get().strip() if veri.css("div.poster-meta > span::text").get() else None,
                 rating=veri.css("div.poster-meta > span.imdb::text").get().strip() if veri.css("div.poster-meta > span.imdb::text").get() else None,
@@ -110,7 +164,7 @@ class HDFilmCehennemi(PluginBase):
             secici = Selector(veri)
             title = secici.css("h4.title::text").get()
             href = secici.css("a::attr(href)").get()
-            poster = secici.css("img::attr(data-src)").get() or secici.css("img::attr(src)").get()
+            poster = self.poster_url(secici)
             year = secici.css("span.year::text").get().strip() if secici.css("span.year::text").get() else None
             rating = secici.css("div.meta span.imdb::text").re_first(r"(\d+(?:\.\d+)?)")
             media_type = secici.css("div.meta span.type::text").get().strip() if secici.css("div.meta span.type::text").get() else "movie"
@@ -119,7 +173,7 @@ class HDFilmCehennemi(PluginBase):
                     SearchResult(
                         title=title.strip(),
                         url=self.fix_url(href.strip()),
-                        poster=self.fix_url(poster.strip()) if poster else None,
+                        poster=poster if poster else None,
                         year=year,
                         rating=rating,
                         plugin=self.name,
@@ -151,7 +205,7 @@ class HDFilmCehennemi(PluginBase):
             else:
                 original_title = title
 
-            poster = (secici.css("aside.post-info-poster img::attr(data-src)").get() or secici.css("aside.post-info-poster img::attr(src)").get() or "").strip()
+            poster = self.poster_url(secici, "aside.post-info-poster img")
             description = secici.css("article.post-info-content > p::text").get().strip()
             genre = secici.css("div.post-info-genres a::text").getall()
             rating = secici.css("div.post-info-imdb-rating span::text").get().strip()
@@ -174,7 +228,7 @@ class HDFilmCehennemi(PluginBase):
 
         data = MovieInfo(
             url=url,
-            poster_url=self.fix_url(poster),
+            poster_url=poster,
             title=self.clean_title(title),
             original_title=self.clean_title(original_title),
             description=description,
@@ -202,13 +256,8 @@ class HDFilmCehennemi(PluginBase):
             # Başlık
             title = (secici.css("h1.section-title::text").get() or "").strip()
             
-            # Poster
-            poster = (
-                secici.css("aside.post-info-poster img::attr(data-src)").get()
-                or secici.css("aside.post-info-poster img::attr(src)").get()
-                or ""
-            ).strip()
-            poster_url = self.fix_url(poster) if poster else None
+            # Poster (varsa @2x çözünürlüklü sürüm)
+            poster = self.poster_url(secici, "aside.post-info-poster img")
 
             # Açıklama
             description = (secici.css("article.post-info-content > p::text").get() or "").strip()
@@ -284,7 +333,7 @@ class HDFilmCehennemi(PluginBase):
         return SeriesInfo(
             content_type="series",
             url=url,
-            poster=poster_url,
+            poster=poster,
             title=self.clean_title(title),
             description=description,
             tags=genres,
