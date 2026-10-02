@@ -8,7 +8,7 @@
 
 ## 1. MİMARİ VİZYON VE ÇALIŞMA PRENSİPLERİ
 
-Sistem, KekikStream/WatchBuddy standartlarında modüler, tak-çalıştır (Plug & Play) eklenti desteğine sahip bir hibrit medya motorudur:
+Sistem, modüler, tak-çalıştır (Plug & Play) eklenti desteğine sahip bir hibrit medya motorudur:
 
 1. **Veritabanında Yalnızca Sayfa URL'i Tutma (Zero Link Rot):**
     - Video sağlayıcılarının (.m3u8, direct mp4, vidmoly embed vb.) stream URL'leri IP kilitli veya kısa ömürlü (token süreli) olduğundan veritabanında kesinlikle ham video linki saklanmaz.

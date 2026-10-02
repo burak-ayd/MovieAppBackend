@@ -25,9 +25,9 @@ ENV PIP_NO_CACHE_DIR=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \
     PYTHONDONTWRITEBYTECODE=1
 
-# Bazı bağımlılıklar (rjsmin, csscompressor, Kekik ...) sarmalayıcı bulunmayan
-# mimarilerde kaynak koddan derlenir. Derleme aşamasına build-essential koyarız;
-# sonuç (runtime) imajına taşınmaz.
+# Bazı bağımlılıkların (ör. curl_cffi) sarmalayıcı bulunmayan mimarilerde
+# kaynak koddan derlenmesi gerekebilir. Derleme aşamasına build-essential
+# koyarız; sonuç (runtime) imajına taşınmaz.
 RUN apt-get update && apt-get install -y --no-install-recommends \
         build-essential \
         gcc \

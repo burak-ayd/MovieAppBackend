@@ -7,6 +7,7 @@ from typing import Any, Dict, List, Optional
 
 from parsel import Selector
 
+from Core.Helpers.EmbedHelper import EmbedHelper
 from Core.Plugin.PluginBase import PluginBase
 from Core.Plugin.PluginModels import MovieInfo, MainPageResult, SearchResult
 
@@ -233,7 +234,8 @@ class FilmModu(PluginBase):
         sure = self._sure(secici.get())
 
         # Fragman: yalnızca ana (Fragman) sayfasında iframe bulunur
-        fragman = secici.css("iframe::attr(src)").get()
+        # Lazy-load koruması: src="about:blank" ihtimaline karşı data-src önce bakılır
+        fragman = self.gomulu_adres(secici, "iframe")
         if fragman and "youtube" in fragman.lower():
             m = re.search(r"(?:embed/|watch\?v=)([\w-]{6,})", fragman)
             # `MovieInfo.fragman_url` çıplak YouTube video ID'si bekliyor
@@ -339,7 +341,8 @@ class FilmModu(PluginBase):
 
         sonuclar = []
         for kaynak in (veri.get("sources") or []):
-            src = self.fix_url(kaynak.get("src") or "")
+            # API yanıtı olsa da aynı koruma: yer tutucu/şema adresleri elenir
+            src = self.fix_url(EmbedHelper.en_iyi(kaynak.get("src"), kaynak.get("data-src")) or "")
             if src:
                 sonuclar.append(src)
         return sonuclar

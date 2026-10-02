@@ -13,6 +13,7 @@ from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 
 from Core.Plugin.PluginBase import PluginBase
 from Core.Plugin.PluginModels import Episode, MainPageResult, MovieInfo, SearchResult, SeriesInfo
+from Core.Helpers.EmbedHelper import EmbedHelper
 from Core.Helpers.TitleHelper import TitleHelper
 
 
@@ -1069,7 +1070,10 @@ class Dizilla(PluginBase):
                 if not iframe:
                     continue
 
-                src = iframe.get("src") or iframe.get("data-src")
+                # src="about:blank" kontrolü YOKTU: yer tutucu embed_urls'a girebiliyordu
+                # (sonda startswith("http") filtresi tutuyordu ama gerçek
+                # data-src adresi de atılıyordu).
+                src = EmbedHelper.en_iyi(iframe.get("src"), iframe.get("data-src"))
                 if src and src not in embed_urls:
                     embed_urls.append(self.fix_url(src))
 
@@ -1077,10 +1081,15 @@ class Dizilla(PluginBase):
             if not embed_urls:
                 soup = BeautifulSoup(html, "html.parser")
                 for iframe in soup.select("iframe[src], iframe[data-src], [data-url], [data-video]"):
-                    src = iframe.get("data-url") or iframe.get("data-video") or iframe.get("data-src") or iframe.get("src")
-                    if not src or "about:blank" in src or src.startswith(("javascript:", "data:")):
-                        continue
-                    if src.lower().endswith((".jpg", ".jpeg", ".png", ".webp", ".svg", ".gif", ".css", ".js")):
+                    # data-url -> data-video -> data-src -> src sırası,
+                    # yer tutucu/varlık filtresi EmbedHelper'da
+                    src = EmbedHelper.en_iyi(
+                        iframe.get("data-url"),
+                        iframe.get("data-video"),
+                        iframe.get("data-src"),
+                        iframe.get("src"),
+                    )
+                    if not src:
                         continue
                     if src not in embed_urls:
                         embed_urls.append(self.fix_url(src))

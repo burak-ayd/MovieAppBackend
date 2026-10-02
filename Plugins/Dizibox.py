@@ -11,11 +11,12 @@ import urllib.parse
 from pathlib import Path
 
 import rich
-from Kekik.Sifreleme import CryptoJS
+from Core.Helpers.Sifreleme import CryptoJS
 from parsel import Selector
 
 from Core.Extractor import ExtractResult
 from Core.Helpers import konsol
+from Core.Helpers.EmbedHelper import EmbedHelper
 from Core.Plugin.PluginBase import PluginBase
 from Core.Plugin.PluginModels import Episode, MainPageResult, SearchResult, SeriesInfo
 
@@ -358,7 +359,7 @@ class DiziBox(PluginBase):
         tags        = secici.css("a[href*='/tur/']::text").getall()
         rating      = secici.css("span.label-imdb b::text").re_first(r"[\d.,]+")
         actors      = [actor.css("::text").get() for actor in secici.css("a[href*='/oyuncu/']")]
-        fragman     = secici.css(".embed-responsive-item > iframe::attr(src)").get()
+        fragman     = self.gomulu_adres(secici, ".embed-responsive-item > iframe")
 
         sezon_links = secici.css("div#seasons-list a::attr(href)").getall()
 
@@ -441,7 +442,8 @@ class DiziBox(PluginBase):
 
                 istek  = await self.httpx.get(iframe_link)
                 secici = Selector(istek.text)
-                iframe = secici.css("div#Player iframe::attr(src)").get() or secici.css("iframe::attr(src)").get()
+                # Lazy-load koruması: src="about:blank" + data-src=<gerçek>
+                iframe = self.gomulu_adres(secici, "div#Player iframe") or self.gomulu_adres(secici, "iframe")
 
                 if iframe:
                     iframe = self.fix_url(iframe)
@@ -510,7 +512,7 @@ class DiziBox(PluginBase):
                         if atob_match:
                             decoded_atob = urllib.parse.unquote(atob_match[1])
                             str_atob = base64.b64decode(decoded_atob).decode("utf-8")
-                            if iframe := Selector(str_atob).css("div#Player iframe::attr(src)").get():
+                            if iframe := self.gomulu_adres(Selector(str_atob), "div#Player iframe"):
                                 fixed_iframe = self.fix_url(iframe)
                                 if fixed_iframe and fixed_iframe.startswith("http"):
                                     results.append({
@@ -589,7 +591,9 @@ class DiziBox(PluginBase):
                 pass
 
         iframes = []
-        if main_iframe := secici.css("div#video-area iframe::attr(src)").get():
+        # Lazy-load koruması: EmbedHelper src="about:blank" yer tutucusunu
+        # atlar ve data-src'e düşer.
+        if main_iframe := self.gomulu_adres(secici, "div#video-area iframe"):
             try:
                 if decoded := await self._iframe_decode(self.name, self.fix_url(main_iframe), url):
                     iframes.extend(decoded)
@@ -612,8 +616,8 @@ class DiziBox(PluginBase):
                 alt_istek = await self.httpx.get(alt_link)
                 if alt_istek.status_code == 200:
                     alt_secici = Selector(alt_istek.text)
-                    if alt_iframe := (alt_secici.css("div#video-area iframe::attr(src)").get() or alt_secici.css("iframe::attr(src)").get()):
-                        if decoded := await self._iframe_decode(alt_name or "Alternatif", self.fix_url(alt_iframe), url):
+                    if alt_iframe := self.gomulu_adres(alt_secici, "div#video-area iframe"):
+                        if decoded := await self._iframe_decode(alt_name or "Alternatif", alt_iframe, url):
                             iframes.extend(decoded)
             except Exception as e:
                 konsol.log(f"Alternatif link çözülürken hata ({alt_name}): {e}")

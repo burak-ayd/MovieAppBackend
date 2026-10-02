@@ -4,7 +4,7 @@ import re
 import sys
 from pathlib import Path
 
-from Kekik.Sifreleme import HexCodec, Packer
+from Core.Helpers.Sifreleme import HexCodec, Packer
 
 from Core.Extractor import ExtractorBase, ExtractResult, Subtitle
 

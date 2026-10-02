@@ -8,6 +8,7 @@ import string
 import uuid
 from Core.Plugin.PluginBase import PluginBase
 from Core.Plugin.PluginModels import SearchResult, MainPageResult, MovieInfo, SeriesInfo, Episode
+from Core.Helpers.EmbedHelper import EmbedHelper
 from Core.Helpers.TitleHelper import TitleHelper
 
 
@@ -479,8 +480,9 @@ class HDFilmCehennemi(PluginBase):
             # Fallback: iframe[data-src] ve iframe[src]
             if not embed_urls:
                 for iframe in sel.css("iframe[data-src], iframe[src]"):
-                    src = iframe.attrib.get("data-src") or iframe.attrib.get("src")
-                    if src and "about:blank" not in src:
+                    # EmbedHelper: data-src öncelikli + about:blank elenir
+                    src = EmbedHelper.gomulu_adres(iframe)
+                    if src:
                         fixed_src = self.fix_url(src)
                         if "cehennempass.pw/download/" in fixed_src:
                             cehennem_id = fixed_src.split("/download/")[-1].split("?")[0]
@@ -490,7 +492,7 @@ class HDFilmCehennemi(PluginBase):
 
             # Alternatif player / kaynak linkleri (yalnızca geçerli URL olanlar)
             for player in sel.css("a.nav-link[data-src], [data-url]"):
-                src = player.attrib.get("data-src") or player.attrib.get("data-url")
+                src = EmbedHelper.gomulu_adres(player)
                 if src and ("http" in src or src.startswith("//") or "/embed" in src):
                     fixed_src = self.fix_url(src)
                     if fixed_src not in embed_urls:

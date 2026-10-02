@@ -6,8 +6,26 @@ import tempfile
 import httpx
 from curl_cffi.requests import AsyncSession
 from typing import Optional, Dict
-from playwright.async_api import async_playwright
-from playwright_stealth import Stealth
+
+# Playwright İSTEĞE BAĞLIDIR. Yalnızca Cloudflare Turnstile challenge tespit
+# edildiğinde tarayıcı açılır; tarayıcı binary'si de Dockerfile'da yoktur
+# (~400 MB, `playwright install chromium` gerekir).
+#
+# İki nedenle import burada yutuluyor:
+#   1) Bu dosya Core/Helpers/__init__.py üzerinden HER yerde import ediliyor.
+#      Playwright kurulu değilse `import api.app` çöker ve container hiç
+#      açılmaz — oysa asıl işlev (düz HTTP çekim) çalışabiliyor.
+#   2) Sunucuda ekran/headless ortam yok; `headless=False` ile açılan tarayıcı
+#      zaten başarısız olacak. Yükleme denemesini her seferinde tekrarlamak
+#      yerine bir kez öğrenip yoluna devam etmek gerekir.
+try:
+    from playwright.async_api import async_playwright
+    from playwright_stealth import Stealth
+    PLAYWRIGHT_KURULU = True
+except ImportError:
+    async_playwright = None
+    Stealth = None
+    PLAYWRIGHT_KURULU = False
 
 class HTMLHelper:
     """
@@ -74,6 +92,18 @@ class HTMLHelper:
             return html
 
         # Challenge var (ya da düz çekim tamamen başarısız) -> tarayıcı dene
+        if not PLAYWRIGHT_KURULU:
+            # Playwright yok: düz içerik elimizdeyse onu döndür, yoksa
+            # challenge çözülemez. Tarayıcıyı hiç denemek anlamsız.
+            if html:
+                print("[!] HTMLHelper: Playwright kurulu değil, düz HTTP yanıtı döndürülüyor.")
+                return html
+            raise RuntimeError(
+                "Cloudflare challenge var ve Playwright kurulu değil. "
+                "Çözüm için: pip install playwright playwright-stealth "
+                "&& playwright install chromium"
+            )
+
         try:
             return await HTMLHelper._playwright_get(url, headers)
         except Exception as hata:

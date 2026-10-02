@@ -7,6 +7,7 @@ from typing import Any, Dict, List, Optional
 
 from parsel import Selector
 
+from Core.Helpers.EmbedHelper import EmbedHelper
 from Core.Plugin.PluginBase import PluginBase
 from Core.Plugin.PluginModels import Episode, MovieInfo, MainPageResult, SearchResult, SeriesInfo
 
@@ -423,7 +424,8 @@ class FilmMakinesi(PluginBase):
 
         if not embedler:
             for iframe in secici.css(".after-player iframe"):
-                ham = (iframe.attrib.get("data-src") or iframe.attrib.get("src") or "").strip()
+                # EmbedHelper: data-src öncelikli, about:blank elenir
+                ham = EmbedHelper.gomulu_adres(iframe)
                 if not ham or "youtube" in ham.lower():
                     continue
                 adres = self.fix_url(ham)

@@ -98,7 +98,7 @@ class InteractiveTestRunner:
     async def run(self):
         """Etkileşimli test döngüsünün ana giriş noktası."""
         while True:
-            self.print_banner("KekikStream | Eklenti Etkileşimli Test Konsolu")
+            self.print_banner("Eklenti Etkileşimli Test Konsolu")
             plugin_count = len(self.plugins)
             extractor_count = len(self.extractor_mgr.extractors)
 

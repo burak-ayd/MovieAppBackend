@@ -10,6 +10,7 @@ from bs4 import BeautifulSoup
 from cryptography.hazmat.primitives import padding
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 
+from Core.Helpers.EmbedHelper import EmbedHelper
 from Core.Plugin.PluginBase import PluginBase
 from Core.Plugin.PluginModels import Episode, MainPageResult, MovieInfo, SearchResult, SeriesInfo
 
@@ -810,8 +811,11 @@ class SelcukFlix(PluginBase):
                 iframe = BeautifulSoup(icerik or "", "html.parser").select_one("iframe")
                 if not iframe:
                     continue
-                src = iframe.get("src") or iframe.get("data-src")
-                if not src or "about:blank" in src:
+                # Lazy-load: önce src deniyordu; src="about:blank" olduğunda
+                # data-src'ye hiç bakılmadan iframe atılıyordu. Sıra ve
+                # temizleme artık EmbedHelper'da tek yerde.
+                src = EmbedHelper.en_iyi(iframe.get("src"), iframe.get("data-src"))
+                if not src:
                     continue
 
                 link = self.fix_url(src)

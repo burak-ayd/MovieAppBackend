@@ -7,10 +7,10 @@ from shutil     import rmtree
 from traceback  import format_exc
 import os, platform, sys
 
-DEBUG_ENV_VARS = ("DEBUG", "MOVIEAPP_DEBUG", "KEKIK_DEBUG")
+DEBUG_ENV_VARS = ("DEBUG", "MOVIEAPP_DEBUG")
 
 def is_debug() -> bool:
-    """Debug modunun açık olup olmadığını kontrol eder (DEBUG / MOVIEAPP_DEBUG / KEKIK_DEBUG = 1/true/yes/on)."""
+    """Debug modunun açık olup olmadığını kontrol eder (DEBUG / MOVIEAPP_DEBUG = 1/true/yes/on)."""
     return any(os.environ.get(var, "0").strip().lower() in ("1", "true", "yes", "on", "debug") for var in DEBUG_ENV_VARS)
 
 def set_debug(enabled: bool = True):

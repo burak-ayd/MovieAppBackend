@@ -406,9 +406,8 @@ class SinemaCX(PluginBase):
 
         ham = gercek or secici.css("iframe#video_playeriframe::attr(data-vsrc)").get()
         if not ham:
-            # Yedek: herhangi bir iframe
-            ham = (secici.css("iframe::attr(data-vsrc)").get()
-                   or secici.css("iframe::attr(src)").get())
+            # Yedek: herhangi bir iframe (data-vsrc önce, src'de about:blank var)
+            ham = self.gomulu_adres(secici, "iframe")
         if not ham:
             print(f"[!] {self.name}: oynatıcı iframe bulunamadı.")
             return []

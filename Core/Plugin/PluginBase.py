@@ -7,6 +7,7 @@ from cloudscraper import CloudScraper
 from httpx import AsyncClient, Timeout
 
 from Core.Plugin.PluginModels import SearchResult, MainPageResult, MovieInfo, SeriesInfo
+from Core.Helpers.EmbedHelper import EmbedHelper
 from Core.Helpers.HTMLHelper import HTMLHelper
 
 class PluginBase(ABC):
@@ -125,6 +126,33 @@ class PluginBase(ABC):
             return url
 
         return f"https:{url}" if url.startswith("//") else urljoin(self.main_url, url)
+
+    # ── Gömülü oynatıcı adresi yardımcıları ──────────────────────────────────
+    # Bütün eklentiler bu üç metodu kullanabilir; lazy-load (data-src),
+    # about:blank yer tutucusu ve srcset mantığı TEK YERDE yönetilir.
+    # Ayrıntı: Core/Helpers/EmbedHelper.py
+
+    def gomulu_adres(self, secici, css: str) -> Optional[str]:
+        """
+        CSS seçicisiyle eşleşen ilk geçerli oynatıcı adresini döndürür.
+
+            ana = self.gomulu_adres(secici, "div.video p iframe")
+
+        Adres mutlak değilse fix_url uygulanır. `about:blank` gibi yer
+        tutucular atlanır, yoksa None döner.
+        """
+        adres = EmbedHelper.ilk_gomulu_adres(secici, css)
+        return self.fix_url(adres) if adres else None
+
+    def gomulu_adresler(self, secici, css: str) -> List[str]:
+        """
+        CSS seçicisiyle eşleşen tüm geçerli oynatıcı adreslerini döndürür.
+
+            embed_urls = self.gomulu_adresler(secici, "div.video p iframe")
+
+        Sıra korunur, tekrarlar atılır, adresler mutlaklaştırılır.
+        """
+        return [self.fix_url(adres) for adres in EmbedHelper.gomulu_adresler(secici, css)]
 
     @staticmethod
     def clean_title(title: str) -> str:

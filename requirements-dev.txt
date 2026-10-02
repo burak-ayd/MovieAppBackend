@@ -1,0 +1,32 @@
+# ══════════════════════════════════════════════════════════════════════════════
+#  MovieApp — geliştirme ve test bağımlılıkları
+#
+#  Bu dosya ÇALIŞMA ZAMANI requirements.txt'i içerir. Yani:
+#      pip install -r requirements-dev.txt
+#  kurulumu hem API'yi hem testleri çalıştırmak için yeterlidir.
+#
+#  Docker imajı bu dosyayı KULLANMAZ — build yalnızca requirements.txt okur.
+#
+#  Neden ayrı?
+#  • pytest / pytest-asyncio üretimde gereksiz (~15 MB + bağımlılıkları)
+#  • yt-dlp yalnızca Core/Media/MediaHandler.py içinde ALT SÜREÇ olarak
+#    çağrılıyor (`yt-dlp` komutu). API bu modülü hiç import etmez; pip
+#    paketi yalnızca o komutun binary'sini sağlar.
+#  • setuptools / wheel: sdist'ten kurulan paketler için. pip build izolasyonu
+#    kullandığından aslında gerekli değildir; eski kurulumlar için tutuluyor.
+# ══════════════════════════════════════════════════════════════════════════════
+
+-r requirements.txt
+
+# ── Test ─────────────────────────────────────────────────────────────────────
+pytest
+pytest-asyncio
+
+# ── Yerel oynatma (main__.py → Core/Media/MediaHandler.py) ──────────────────
+# Paket, `yt-dlp` adlı konsol komutunu sağlar. mpv/vlc oynatıcı ayrıca
+# sistemde kurulu olmalıdır (MediaHandler mpv/vlc yoksa uyarır).
+yt-dlp
+
+# ── Kaynak dağıtımından kurulum için ─────────────────────────────────────────
+setuptools
+wheel

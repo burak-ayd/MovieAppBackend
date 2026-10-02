@@ -1,30 +1,121 @@
+# ══════════════════════════════════════════════════════════════════════════════
+#  MovieApp — çalışma zamanı bağımlılıkları
+#
+#  Bu dosya yalnızca API'nin, eklentilerin ve extractor'ların ÇALIŞMA ANINDA
+#  ihtiyaç duyduğu paketleri içerir. Her satır projede gerçekten import
+#  edilir (bkz. Core/, Extractors/, Plugins/, api/).
+#
+#  Test ve geliştirme araçları → requirements-dev.txt
+#  Oynatıcı (yt-dlp/mpv) → requirements-dev.txt (API ile ilgisi yok)
+#
+#  Kurulum:
+#      pip install -r requirements.txt
+#
+#  Docker imajı bu dosyayı kullanır (Dockerfile → builder aşaması).
+# ══════════════════════════════════════════════════════════════════════════════
+
+# ── HTTP / ağ katmanı ────────────────────────────────────────────────────────
+# curl_cffi   : TLS parmak izi taklidi (Cloudflare korumalı siteler) —
+#               Core/Helpers/HTMLHelper.py, Core/Plugin/PluginBase.py,
+#               Core/Extractor/ContentXPlayer.py
+# httpx[http2] : tüm eklenti/extractor istekleri — Core/Plugin/PluginBase.py,
+#               Core/Extractor/ExtractorBase.py, Core/Libs/TMDB.py
+#               (eski dosyada 'httpx' ve 'httpx[http2]' olarak iki kez vardı,
+#                tek satırda birleştirildi)
+# cloudscraper : Core/Helpers/Kontrol.py (domain güncelleme) +
+#               Core/Plugin/PluginBase.py
+# selectolax   : hızlı CSS seçici — Core/Helpers/HTMLHelper.py
 curl_cffi>=0.7.0
-rapidfuzz
-beautifulsoup4
-setuptools
-wheel
-Kekik
-httpx
+httpx[http2]
 cloudscraper
 selectolax
+
+# ── HTML ayrıştırma ──────────────────────────────────────────────────────────
+# beautifulsoup4 : Plugins/Dizibox.py, Dizilla.py, DiziPal.py, SelcukFlix.py
+#                  (selectolax yetmeyen yerlerde)
+# rapidfuzz      : bulanık eşleştirme — Core/Libs/TMDB.py
+# parsel         : CSS seçici — Plugins/Dizibox.py, DiziMom.py, FilmMakinesi.py,
+#                  FilmModu.py, HDFilmCehennemi.py, SinemaCX.py
+#
+# 🔴 parsel KRİTİK: Bu paket daha önce requirements.txt'te YOKTU ve yalnızca
+#    `Kekik` onu getiriyordu (pip: parsel → Required-by: Kekik). Kekik
+#    kaldırıldığı anda 12 eklentiden 6'sı sessizce kayboluyor:
+#      PluginLoader her dosyayı ayrı try/except içinde yüklediği için API
+#      ÇALIŞIRKEN ekliği listesinden düşüyor — 500 hatası da vermiyor.
+#    cssselect / w3lib / lxml parsel ile birlikte gelir.
+beautifulsoup4
+rapidfuzz
+parsel
+
+# ── Şifreleme ────────────────────────────────────────────────────────────────
+# pycryptodome : AES-CBC çözme — Core/Helpers/Sifreleme.py (CryptoJS)
+#                ÖNEMLİ: daha önce `Kekik` paketinden geliyordu ve pycryptodome
+#                onun transitif bağımlılığıydı. Kekik kaldırıldığı için burada
+#                AÇIKÇA bildirilmelidir; aksi halde Plugins/Dizibox.py çalışma
+#                anında ImportError verir.
+#
+# cryptography : AES + PBKDF2 — Plugins/DiziPal.py, DiziPalOriginal.py,
+#                Dizilla.py, SelcukFlix.py, Extractors/HDMomPlayer.py
+#
+# 🔴 cryptography KRİTİK: Bu da önce bildirilmemişti. Kaldırılan
+#    `python-jose[cryptography]` bunu getiriyordu, artık da `Kekik`'in değil
+#    conda base'in sağladığı bir bağımlılıktı. ÜstELİK supabase → PyJWT de
+#    cryptography kullanıyor: eksikse `import api.app` TAMAMEN çöküyor,
+#    yani container hiç açılmıyor.
+pycryptodome
+cryptography
+
+# ── Veri modeli / API ────────────────────────────────────────────────────────
+# pydantic      : Core/Plugin/PluginModels.py, Core/Extractor/ExtractorModels.py,
+#                 Core/Libs/AuthModels.py, SyncModels.py, api/routes/*
+# fastapi       : api/
+# python-dotenv : .env okuma — api/app.py, main__.py
+# supabase      : PostgREST + GoTrue istemcileri — Core/Libs/Supabase.py,
+#                 Core/Libs/SupabaseAuth.py
 pydantic>=2.7.0
-InquirerPy
-yt-dlp
-httpx[http2]
 fastapi
+python-dotenv
+supabase
+
+# ── Konsol / etkileşim ───────────────────────────────────────────────────────
+# InquirerPy : Core/Helpers/HTMLHelper.py içinde kullanıcı onayı için.
+#              API çalışırken de import edilir, bu yüzden "geliştirme aracı"
+#              DEĞİLDİR ve burada kalır.
+#
+# rich : Core/Helpers/Cli.py konsol nesnesi (`konsol = Console()`) ve
+#        Plugins/Dizibox.py logları. InquirerPy rich'i getirdiği için bugün
+#        çalışıyor, ancak doğrudan import edildiği için AÇIKÇA bildirilir
+#        (InquirerPy bir gün rich bağımlılığını bırakırsa burası çöker).
+InquirerPy
+rich
+
+# ── Playwright (opsiyonel, Cloudflare challenge) ─────────────────────────────
+# Core/Helpers/HTMLHelper.py yalnızca Cloudflare Turnstile challenge tespit
+# edildiğinde tarayıcı açar. İki not:
+#
+#   1) import MODÜL SEVİYESİNDE olduğu için kurulu olmazsa
+#      `import api.app` çöker → container hiç açılmaz. Bu yüzden burada.
+#   2) Tarayıcı BİNARYSİ (~400 MB) pip ile kurulmaz; `playwright install
+#      chromium` gerekir ve Dockerfile'da YOK. Core/Helpers/HTMLHelper.py
+#      bu durumu yakalar: düz HTTP yanıtı varsa onu döndürür, challenge
+#      çözülemezse hata verir. Yani bu paket "challenge varsa işe yarar,
+#      yoksa düz HTTP'ye düşer" modunda çalışır.
+#      Eklenmesi gerekiyorsa Dockerfile'a:
+#          RUN playwright install --with-deps chromium
+playwright
+playwright-stealth
+
+# ── Sunucu ───────────────────────────────────────────────────────────────────
+# uvicorn  : ASGI sunucusu (docker-compose → command: ["api"])
+# uvloop   : uvicorn varsayılan olarak otomatik kullanır (Linux hızlandırma)
+# httptools: uvicorn'un HTTP ayrıştırıcısı (httptools kuruluysa kullanılır)
+#
+# NOT: python-jose YOK. JWT doğrulaması supabase SDK'nın get_claims() metoduna
+# devredildi (Core/Libs/SupabaseAuth.py); imza anahtarı JWKS'ten gelir.
+# python-multipart YOK: hiçbir uçta Form/File/UploadFile kullanılmıyor.
+# gunicorn YOK: çalışma zamanı uvicorn (ops/supervisor.py).
+# uvicorn[standard] yerine ayrı ayrı yazıldı — [standard] gereksiz yere
+# PyYAML, websockets ve watchfiles getiriyor.
 uvicorn
 uvloop; platform_system != "Windows"
 httptools
-gunicorn
-user_agents
-PyYAML
-Jinja2
-python-multipart
-python-dotenv
-pymongo
-supabase
-csscompressor
-rjsmin
-python-jose[cryptography]
-pytest
-pytest-asyncio

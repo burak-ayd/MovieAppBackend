@@ -364,21 +364,34 @@ class DiziMom(PluginBase):
         if not url:
             return []
 
-        # Oynatıcı sayfaları mobil kullanıcı adı ve oturum bekliyor
-        try:
-            await self.httpx.post(
-                url=f"{self.main_url}/wp-login.php",
-                headers={**self.player_headers, "Referer": f"{self.main_url}/"},
-                data={
-                    "log": "keyiflerolsun",
-                    "pwd": "12345",
-                    "rememberme": "forever",
-                    "redirect_to": self.main_url,
-                },
-                timeout=30.0,
-            )
-        except Exception as e:
-            print(f"[!] {self.name} oturum açma hatası: {e}")
+        # ── Oturum açma denemesi: KALDIRILDI (2026-10-02) ────────────────────
+        #
+        # Canlı doğrulama: bölüm sayfası HERKESE AÇIK. İframe adresi ham HTML'in
+        # içinde geliyor; oturum açmadan da `div.video p iframe` bulundu ve
+        # load_links doğru oynatıcı adresini döndürdü. Ayrıca bu POST'un yanıtı
+        # hiçbir yerde kontrol edilmiyordu: try/except yalnızca ağ hatasını
+        # yutuyor, başarı/başarısızlık sonucu hiçbir şeye etkilemiyordu.
+        #
+        # Yani bu blok her bölüm izlemede üçüncü taraf siteye boşuna bir giriş
+        # POST'u gönderiyor, hiçbir işe yaramıyordu ve yalnızca IP rate-limit'e
+        # takılma riski taşıyordu. Gerçek login bilgileri gerektiği için de
+        # (log/pwd düz metin) kaynak kodunda tutulmamalı.
+        #
+        # Gerekirse geri almak için:
+        # try:
+        #     await self.httpx.post(
+        #         url=f"{self.main_url}/wp-login.php",
+        #         headers={**self.player_headers, "Referer": f"{self.main_url}/"},
+        #         data={
+        #             "log": "kullanici",
+        #             "pwd": "parola",
+        #             "rememberme": "forever",
+        #             "redirect_to": self.main_url,
+        #         },
+        #         timeout=30.0,
+        #     )
+        # except Exception as e:
+        #     print(f"[!] {self.name} oturum açma hatası: {e}")
 
         try:
             istek = await self.httpx.get(url, headers={**self.player_headers, "Referer": f"{self.main_url}/"},
@@ -390,9 +403,13 @@ class DiziMom(PluginBase):
 
         embed_urls: List[str] = []
 
-        ana_iframe = secici.css("div.video p iframe::attr(src)").get()
-        if ana_iframe:
-            embed_urls.append(self.fix_url(ana_iframe))
+        # Lazy-load: site iframe'i `src="about:blank"` + `data-src=<gerçek>`
+        # olarak gönderiyor. `.get()` ilk (yer tutucu) iframe'i seçtiği için
+        # `div.video p iframe::attr(src)` "about:blank" döndürüyordu ve API
+        # 200 ile {links: ["about:blank"]} veriyordu — hatasız, sessiz bozukluk.
+        # self.gomulu_adresler() doğru sırayı (data-src -> src) uygular.
+        if ana_iframe := self.gomulu_adres(secici, "div.video p iframe"):
+            embed_urls.append(ana_iframe)
 
         # Alternatif kaynak sayfaları (her biri kendi iframe'ini içerir)
         for kaynak in secici.css("div.sources a::attr(href)").getall():
@@ -402,11 +419,10 @@ class DiziMom(PluginBase):
                 alt_istek = await self.httpx.get(self.fix_url(kaynak),
                                                   headers={**self.player_headers, "Referer": f"{self.main_url}/"},
                                                   follow_redirects=True, timeout=30.0)
-                alt_iframe = Selector(alt_istek.text).css("div.video p iframe::attr(src)").get()
-                if alt_iframe:
-                    ek = self.fix_url(alt_iframe)
-                    if ek not in embed_urls:
-                        embed_urls.append(ek)
+                alt_secici = Selector(alt_istek.text)
+                alt_iframe = self.gomulu_adres(alt_secici, "div.video p iframe")
+                if alt_iframe and alt_iframe not in embed_urls:
+                    embed_urls.append(alt_iframe)
             except Exception as e:
                 print(f"[!] {self.name} alternatif kaynak hatası: {e}")
 
@@ -422,7 +438,7 @@ if __name__ == "__main__":
         print(test[0] if test else "Sonuç yok")
         # await plugin.search("halef")
         # print((await plugin.load_item("https://www.dizimom.wiki/diziler/vazgecilmez-izle/")).model_dump_json(indent=4))
-        # print(await plugin.load_links("https://www.dizimom.wiki/vazgecilmez-1-sezon-1-bolum-izle/"))
+        print(await plugin.load_links("https://www.dizimom.wiki/vazgecilmez-1-sezon-1-bolum-izle/"))
         await plugin.close()
 
     asyncio.run(main())
