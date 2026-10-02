@@ -496,6 +496,75 @@ class TestSyncEndpoints:
         assert response.status_code == 400
         assert "bilinmeyen" in response.json()["detail"]
 
+    def test_push_gorunurluk_belgeleri_global_uygulanir(self, client):
+        """Eklenti/kategori görünürlüğü hesap genelinde senkronize edilir."""
+        documents = {
+            "plugin_visibility": {
+                "payload": {"dizibox": False, "hdfilmcehennemi": True},
+                "hlc": {"wall": 1760000000000, "counter": 0},
+                "device_id": "telefon",
+                "client_updated_at": "2026-10-01T12:00:00.000Z",
+            },
+            "category_visibility": {
+                "payload": {"hdfilmcehennemi": {"dram": False}},
+                "hlc": {"wall": 1760000000000, "counter": 0},
+                "device_id": "telefon",
+                "client_updated_at": "2026-10-01T12:00:00.000Z",
+            },
+        }
+        body = client.post(
+            "/api/sync/push", json=push_body(documents=documents), headers=AUTH_HEADER
+        ).json()
+        assert sorted(body["documents_applied"]) == [
+            "category_visibility",
+            "plugin_visibility",
+        ]
+        assert body["documents_rejected"] == []
+
+    def test_push_gorunurluk_eski_cihaz_reddedilir(self, client):
+        """Global kural: daha eski HLC'li cihaz sunucunun değerini ezemez."""
+        newer = {
+            "plugin_visibility": {
+                "payload": {"dizibox": False},
+                "hlc": {"wall": 1760000009000, "counter": 0},
+                "device_id": "telefon",
+            }
+        }
+        client.post(
+            "/api/sync/push", json=push_body(documents=newer), headers=AUTH_HEADER
+        )
+
+        older = {
+            "plugin_visibility": {
+                "payload": {"dizibox": True},
+                "hlc": {"wall": 1760000001000, "counter": 0},
+                "device_id": "tv",
+            }
+        }
+        body = client.post(
+            "/api/sync/push", json=push_body(documents=older), headers=AUTH_HEADER
+        ).json()
+        assert body["documents_applied"] == []
+        assert body["documents_rejected"][0]["doc_type"] == "plugin_visibility"
+        assert body["documents_rejected"][0]["reason"] == "server_newer"
+        assert body["documents_rejected"][0]["server_version"]["payload"] == {"dizibox": False}
+
+    def test_pull_gorunurluk_belgelerini_dondurur(self, client):
+        documents = {
+            "plugin_visibility": {
+                "payload": {"filmmodu": False},
+                "hlc": {"wall": 1760000000000, "counter": 0},
+                "device_id": "tv",
+            }
+        }
+        client.post(
+            "/api/sync/push", json=push_body(documents=documents), headers=AUTH_HEADER
+        )
+        body = client.get("/api/sync/pull", headers=AUTH_HEADER).json()
+        assert body["documents"]["plugin_visibility"]["payload"] == {"filmmodu": False}
+        # Sunucuda olmayan bir belge yanıtta da yer almaz (tombstone üretilmez)
+        assert "player_settings" not in body["documents"]
+
     def test_push_cihaz_bos_422(self, client):
         body = push_body([favorite("abc")])
         body["device"] = {"device_id": "   "}

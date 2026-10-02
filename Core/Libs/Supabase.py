@@ -53,6 +53,7 @@ from Core.Libs.SyncModels import (
     SyncRecordIn,
     compare_hlc,
     is_incoming_newer,
+    normalize_document_payload,
     row_to_stamp,
     utc_now_iso,
 )
@@ -361,7 +362,15 @@ class SupabaseManager:
         if since:
             query = query.gt("updated_at", since)
         result = await query.execute()
-        return result.data or []
+        rows = result.data or []
+
+        # Boş JSONB dizi `{}` olarak gelebilir (bkz. normalize_document_payload).
+        # Sözleşmeyi burada sabitliyoruz: istenci türü doğru şekilde alır.
+        for row in rows:
+            row["payload"] = normalize_document_payload(
+                row.get("doc_type"), row.get("payload")
+            )
+        return rows
 
     async def push_documents(
         self, user_id: str, documents: List[DocumentIn]
@@ -613,8 +622,13 @@ def _document_row(user_id: str, document: DocumentIn) -> Dict[str, Any]:
 def _server_version(row: Dict[str, Any]) -> Dict[str, Any]:
     """Sunucu satırını istemcinin beklediği `server_version` biçimine çevirir."""
     stamp = row_to_stamp(row)
+    payload = row.get("payload")
+    if payload is None:
+        payload = {}
     return {
-        "payload": row.get("payload") or {},
+        # Reddedilen belgenin `doc_type`'ı satırda bulunur; liste türleri için
+        # boş JSONB dizi `{}` olarak gelmiş olabilir, düzeltilir.
+        "payload": normalize_document_payload(row.get("doc_type"), payload),
         "is_deleted": bool(row.get("is_deleted")),
         "hlc": {"wall": stamp.wall, "counter": stamp.counter},
         "device_id": row.get("device_id") or "",

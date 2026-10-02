@@ -296,7 +296,13 @@ async def pull(
     document_rows = await db.fetch_documents(current_user, since=since_iso, limit=limit)
     documents = {
         row["doc_type"]: PullDocument(
-            payload=row.get("payload") or {},
+            # ⚠️ `row.get("payload") or {}` BOŞ DİZİYİ NESNEYE ÇEVİRİR:
+            # Python'da `[]` falsy'dir, dolayısıyla `[] or {}` -> `{}` olur ve
+            # istemci boş arama geçmişini boş NESNE olarak alır. `{}` truthy
+            # olduğu için istemcide `payload || []` fallback'i de çalışmaz ve
+            # `({}).forEach` undefined döner (birleştirme çöker).
+            # `fetch_documents` zaten belge türüne göre normalize ediyor.
+            payload=row.get("payload"),
             is_deleted=bool(row.get("is_deleted")),
             hlc=row_to_stamp(row),
             device_id=row.get("device_id") or "",

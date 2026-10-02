@@ -43,6 +43,37 @@ SUPPORTED_SCHEMA_VERSION = 1
 # tutulmalıdır.
 MAX_RECORDS_PER_PUSH = 1000
 MAX_DOCUMENTS_PER_PUSH = len(DOCUMENT_TYPES)
+
+# ⚠️ JSONB boş DİZİ tuzağı
+#
+# Postgres'te `payload = '[]'::jsonb` boş bir dizidir; PostgREST bu değeri JSON'da
+# boş DİZİ olarak döndürür, ancak bazı sürümler/istemciler onu BOŞ NESNE `{}`
+# olarak çözer. İstemcide `payload || []` fallback'i boş nesneyi yakalamaz çünkü
+# `{}` truthy'dir — `({}).forEach` undefined'dır ve birleştirme çöker.
+#
+# Bu yüzden okuma tarafında liste olması beklenen türler açıkça normalize edilir:
+# sözleşme her istemci için "dizi ya da hiçbir şey" olur.
+DOCUMENT_LIST_TYPES = frozenset({"search_history"})
+
+
+def normalize_document_payload(doc_type: str, payload: Any) -> Any:
+    """
+    Belge payload'ını sözleşmedeki tipe döndürür.
+
+    Liste türleri (`search_history`) için boş bir nesne `{}`, boş dizi `[]`
+    olarak düzeltilir. Diğer türler (`player_settings`, görünürlük haritaları)
+    zaten nesnedir ve dokunulmaz.
+    """
+    if doc_type in DOCUMENT_LIST_TYPES:
+        if isinstance(payload, dict) and not payload:
+            return []
+        if payload is None:
+            return []
+        if not isinstance(payload, list):
+            return []
+    return payload
+
+
 MAX_PAYLOAD_BYTES = 2 * 1024 * 1024        # 2 MB
 MAX_CONTENT_ID_LENGTH = 512
 MAX_DEVICE_ID_LENGTH = 128

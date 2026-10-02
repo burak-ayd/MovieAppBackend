@@ -38,6 +38,7 @@ from Core.Libs.Supabase import (
     _server_version,
 )
 from Core.Libs.SyncModels import (
+    DOCUMENT_LIST_TYPES,
     LIBRARY_ITEM_TYPES,
     DeviceInfo,
     DocumentIn,
@@ -45,6 +46,7 @@ from Core.Libs.SyncModels import (
     SyncRecordIn,
     compare_hlc,
     is_incoming_newer,
+    normalize_document_payload,
     row_to_stamp,
     utc_now_iso,
 )
@@ -850,3 +852,38 @@ class TestSyncModels:
     def test_row_to_stamp_bozuk_satiri_toleranse_edir(self):
         assert row_to_stamp({}).wall == 0
         assert row_to_stamp({"hlc_wall": 5, "hlc_counter": 2}).counter == 2
+
+
+class TestDocumentPayloadNormalization:
+    """Boş JSONB dizi tuzağı: `[]` istemciye `{}` olarak gidemez.
+
+    Python'da boş liste falsy olduğu için `payload or {}` ifadesi boş diziyi
+    boş NESNEye çevirir. İstemcide `{}` truthy olduğundan `payload || []`
+    fallback'i de yakalamaz ve `({}).forEach` undefined döner — arama geçmişi
+    boşaltıldığında birleştirme çöker.
+    """
+
+    def test_bos_dizi_boz_nesneye_donusmez(self):
+        assert normalize_document_payload("search_history", {}) == []
+        assert normalize_document_payload("search_history", []) == []
+        assert normalize_document_payload("search_history", None) == []
+
+    def test_dolu_liste_bozulmaz(self):
+        assert normalize_document_payload("search_history", ["a", "b"]) == ["a", "b"]
+
+    def test_nesne_turleri_boslukta_nesne_kalir(self):
+        # plugin_visibility zaten bir nesnedir; boş nesne DEĞER taşır
+        assert normalize_document_payload("plugin_visibility", {}) == {}
+        assert normalize_document_payload("player_settings", {}) == {}
+
+    def test_bilinmeyen_tur_dokunulmaz(self):
+        assert normalize_document_payload("theme", {"dark": True}) == {"dark": True}
+
+    def test_liste_turleri_sozlesmesi(self):
+        assert "search_history" in DOCUMENT_LIST_TYPES
+        assert "plugin_visibility" not in DOCUMENT_LIST_TYPES
+
+    def test_python_dilinde_bos_liste_falsy_tuzagi_documented(self):
+        # `[] or {}` -> {} . Bu, hatanın kaynağıydı; regresyon koruması.
+        assert ([] or {}) == {}
+        assert normalize_document_payload("search_history", [] or {}) == []
