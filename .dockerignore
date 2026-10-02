@@ -1,0 +1,40 @@
+# ── Sürüm kontrolü ve geliştirme artefaktları ─────────────────────────────────
+.git
+.gitignore
+.github
+.vscode
+.idea
+.pytest_cache
+.mypy_cache
+.ruff_cache
+**/__pycache__
+**/*.py[cod]
+*.egg-info
+
+# ── Sanal ortamlar ───────────────────────────────────────────────────────────
+.venv
+venv
+env
+ENV
+
+# ── ORTAM DEĞİŞKENLERİ (sır) ─────────────────────────────────────────────────
+# .env asla imaja girmez. Coolify dağıtımında değerler Coolify UI'dan veya
+# docker-compose `environment:` bloğundan enjekte edilir; `api/app.py` içindeki
+# load_dotenv() dosya yoksa sessizce geçer.
+.env
+.env.*
+!.env.example
+
+# ── Test / doküman artefaktları ──────────────────────────────────────────────
+docs
+*.md
+!README.md
+test_*.py
+
+# ── İşletim sistemi dosyaları ────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+
+# ── Docker ile ilgili dosyalar (bağlam zaten Dockerfile'ı içerir) ────────────
+.dockerignore
+docker-compose*.yml

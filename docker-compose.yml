@@ -1,0 +1,185 @@
+# ══════════════════════════════════════════════════════════════════════════════
+#  MovieApp — Coolify / Docker Compose dağıtımı (üretim)
+#
+#  İki servis, TEK imaj:
+#
+#    api     → FastAPI (uvicorn) + yeniden yükleme denetleyicisi  (:8000)
+#    watcher → domain güncelleyici (günlük 18:00 + domain hatası anında)
+#
+#  Ortak iki birim hacmi:
+#
+#    plugins → /app/Plugins   Kontrol.py'nin düzenlediği eklenti dosyaları.
+#                              Volume olmasa güncellenen domainler her
+#                              redeploy'da KAYBOLUR.
+#    state   → /state         Kilit, durum JSON'ları ve yeniden yükleme bayrağı.
+#                              watcher buraya yazar, api oradan okur.
+#
+#  ── Coolify kurulumu ────────────────────────────────────────────────────────
+#  1. Resource Type: Docker Compose → Compose YAML olarak bu dosyayı yapıştırın.
+#  2. Environment Variables bölümüne API anahtarlarını girin (aşağıdaki liste):
+#         SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY,
+#         TMDB_API_KEY, CORS_ORIGINS, TZ
+#     (Coolify bunları doğrudan konteynere enjekte eder; `env_file` gerekmez.)
+#  3. Domain: api servisine bağlayın, port 8000.
+#  4. Healthcheck zaten tanımlı — Coolify yönlendirmeyi buna göre başlatır.
+#  5. `docker-compose.dev.yml` bu dosyaya DOKUNMAZ, yalnızca yerel geliştirme
+#     için ayrı bir override'dır.
+#
+#  ── Volume politikası ────────────────────────────────────────────────────────
+#  Coolify "Persistent Storage" ekranından da volume tanımlayabilirsiniz; bu
+#  durumda aşağıdaki `volumes:` bloğunu silip servislerde mount yollarını
+#  gösterdiğiniz yolları kullanın. Volume SİLERSENİZ domain güncellemeleri
+#  kalıcı olmaz (kontrol dosyası uyarı basar).
+# ══════════════════════════════════════════════════════════════════════════════
+
+name: movieapp
+
+# ── Ortak yapılandırma (iki servis de aynı imajı, aynı hacimleri kullanır) ───
+x-app: &app
+  build:
+    context: .
+    dockerfile: Dockerfile
+    args:
+      APP_UID: "10001"
+      APP_GID: "10001"
+  # Yerel etiket. Kayıt defteri (GHCR) kullanmak isterseniz Coolify'da
+  # Build Pack ayarını "Docker Compose" + registry olarak tanımlayın ve
+  # buradaki değeri kendi repo adınızla değiştirin. Şimdilik `image` yalnızca
+  # yerel bir etiket olarak kullanılır, `build` her zaman yürütülür.
+  image: movieapp-api:${IMAGE_TAG:-local}
+
+  # Uzun sözdizimi + `required: false`: depoda .env yoksa da compose hata
+  # vermez (Docker Compose ≥ 2.24 gerekir; .env dosyası sürüm kontrolünde
+  # tutulmadığı için bu şart). Değerler Coolify UI'dan geliyorsa bu blok
+  # gereksizdir.
+  env_file:
+    - path: .env
+      required: false
+
+  volumes:
+    # Kontrol.py'nin güncellediği dosyalar — kalıcı olmalı.
+    - plugins:/app/Plugins
+    # watcher ↔ api iletişimi (kilit + yeniden yükleme bayrağı).
+    - state:/state
+
+  restart: unless-stopped
+  init: true
+
+  # Docker'ın 10 saniyelik varsayılan SIGKILL'i, FastAPI'nin graceful
+  # shutdown'unu (HTTP oturumlarını kapatma) kesecekti. 40 sn veriyoruz.
+  stop_grace_period: 40s
+
+  # Container çıktısını sınırla: uzun süre çalışan watcher logları diski
+  # doldurmasın (varsayılan: sınırsız json log).
+  logging:
+    driver: json-file
+    options:
+      max-size: "10m"
+      max-file: "3"
+
+  # Basit sertleştirme: uygulamanın root yetkisi veya ek capability ihtiyacı yok.
+  security_opt:
+    - no-new-privileges:true
+  cap_drop:
+    - ALL
+
+
+services:
+  # ── API ────────────────────────────────────────────────────────────────────
+  api:
+    <<: *app
+    container_name: movieapp-api
+    command: ["api"]
+
+    environment:
+      # Operasyonel ayarlar. Sırlar (SUPABASE_*, TMDB_API_KEY) buraya
+      # YAZILMAZ: burada geçersiz kılınır ve Coolify'in inject ettiği
+      # değerleri boşaltırdı. Onlar env_file / Coolify UI üzerinden gelir.
+      TZ: ${TZ:-Europe/Istanbul}
+      DEBUG: ${DEBUG:-0}
+      API_WORKERS: ${API_WORKERS:-1}
+      API_INTERNAL_URL: ${API_INTERNAL_URL:-http://api:8000}
+
+    ports:
+      # Coolify bu portu otomatik algılar ve domain yönlendirmesini buna bağlar.
+      # Yalnızca yerelde yayınlamak istiyorsanız host tarafını 127.0.0.1 yapın.
+      - "${API_BIND:-0.0.0.0}:${API_PORT:-8000}:8000"
+
+    healthcheck:
+      test: ["CMD", "python", "/app/ops/healthcheck.py", "api"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 45s
+
+    networks:
+      - movieapp
+
+
+  # ── Domain güncelleyici ────────────────────────────────────────────────────
+  # Günlük 18:00'de ve bir eklenti domaini hata verdiğinde
+  # Core/Helpers/Kontrol.py çalıştırır; değişen domainler için API'yi
+  # yeniden yükletir.
+  domain-updater:
+    <<: *app
+    container_name: movieapp-domain-updater
+    command: ["watcher"]
+    restart: unless-stopped
+
+    environment:
+      TZ: ${TZ:-Europe/Istanbul}
+
+      # ── Zamanlama ───────────────────────────────────────────────────────
+      # Konteyner saat dilimiyle (TZ) yorumlanır. TZ=Europe/Istanbul ise
+      # UPDATE_HOUR=18 doğrudan akşam 18:00 demektir.
+      UPDATE_HOUR: ${UPDATE_HOUR:-18}
+      UPDATE_MINUTE: ${UPDATE_MINUTE:-0}
+
+      # ── Hata tetikleyicisi ──────────────────────────────────────────────
+      # Kaç saniyede bir eklenti domainleri yoklanır (varsayılan 5 dk).
+      DOMAIN_CHECK_INTERVAL: ${DOMAIN_CHECK_INTERVAL:-300}
+      # Kaç ardışık başarısız tur sonrası güncelleme çalışsın (1 = ilk hatada).
+      ERROR_THRESHOLD: ${ERROR_THRESHOLD:-1}
+      # İki hata kaynaklı güncelleme arasındaki en az bekleme (saniye).
+      ERROR_COOLDOWN: ${ERROR_COOLDOWN:-1800}
+      # Boş arama sonucunu hata saymak (kapalı: eşleşme yoksa hata değildir).
+      PROBE_REQUIRE_RESULTS: ${PROBE_REQUIRE_RESULTS:-0}
+      PROBE_QUERY: ${PROBE_QUERY:-matrix}
+      PROBE_TIMEOUT: ${PROBE_TIMEOUT:-45}
+      # Watcher'ın açılışta da bir kez güncellemesi (API zaten açılışta yapar).
+      RUN_ON_START: ${RUN_ON_START:-0}
+      KONTROL_TIMEOUT: ${KONTROL_TIMEOUT:-600}
+
+    depends_on:
+      api:
+        # API sağlıklı olmadan yoklama yapmanın anlamı yok; ayrıca watcher'ın
+        # /api/plugins isteğinde kıvılcım çıkarmasını önler.
+        condition: service_healthy
+        restart: true
+
+    # Port YOK: watcher dışarıdan erişilebilir olmamalı.
+    expose:
+      - "8000"
+
+    healthcheck:
+      # "Süreç ayakta ama iş yapmıyor" durumunu yakalar: kalp atışı
+      # dosyasının yaşı 180 saniyeyi aşarsa unhealthy olur.
+      test: ["CMD", "python", "/app/ops/healthcheck.py", "watcher", "--max-age", "180"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+    networks:
+      - movieapp
+
+
+volumes:
+  # Kontrol.py'nin yazdığı eklenti dosyaları (main_url güncellemeleri).
+  plugins:
+  # watcher ↔ api durum/bayrak paylaşımı.
+  state:
+
+networks:
+  movieapp:
+    driver: bridge

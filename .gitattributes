@@ -1,0 +1,17 @@
+# Satır sonları — konteyner imajı için kritik.
+# docker/entrypoint.sh CRLF olursa "/bin/sh^M: bad interpreter" hatası verir
+# ve konteyner hiç başlamaz. Windows'ta geliştirildiği için LF'e sabitleniyor.
+*.sh text eol=lf
+Dockerfile text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+.dockerignore text eol=lf
+
+# Varsayılan: metin dosyalarında CRLF'i koru (git ayarı ne olursa olsun
+# yalnızca yukarıdakiler zorlanır).
+* text=auto
+
+*.py text diff=python
+*.png binary
+*.jpg binary
+*.ico binary
