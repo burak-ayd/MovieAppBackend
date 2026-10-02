@@ -1,4 +1,4 @@
-# Bu araç @keyiflerolsun tarafından | @KekikAkademi için yazılmıştır.
+# Oluşturan: Burak Aydoğan
 from Extractors.Vidmoly import VidMoly
 
 

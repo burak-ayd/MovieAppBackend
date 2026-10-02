@@ -1,5 +1,4 @@
-# Bu araç @keyiflerolsun tarafından | @KekikAkademi için yazılmıştır.
-# Python portu: Kekik-cloudstream / PeaceMakerstExtractor.kt
+# Oluşturan: Burak Aydoğan
 #
 # Akış: POST {url}?do=getVideo (hash, r, s) -> JSON `videoSources`
 #       (yanıt teve2 embed'i içerirse teve2 API'sine geçilir)

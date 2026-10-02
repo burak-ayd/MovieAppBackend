@@ -1,5 +1,4 @@
-# Bu araç @keyiflerolsun tarafından | @KekikAkademi için yazılmıştır.
-# Python portu: Kekik-cloudstream / TurboImgzExtractor.kt
+# Oluşturan: Burak Aydoğan
 #
 # FullHDFilmizlesene bu adrese "anahtar||adres" biçiminde verir; çıkarıcı
 # anahtarı ayırmak için url.split("||")[-1] kullanır (Kotlin: substringAfter("||")).

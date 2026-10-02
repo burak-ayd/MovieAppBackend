@@ -1,4 +1,4 @@
-# Bu araç @keyiflerolsun tarafından | @KekikAkademi için yazılmıştır.
+# Oluşturan: Burak Aydoğan
 
 from pydantic import BaseModel, field_validator
 from typing   import List, Optional

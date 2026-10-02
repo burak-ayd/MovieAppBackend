@@ -1,6 +1,7 @@
+# Oluşturan: Burak Aydoğan
+
 """FilmMakinesi CloseLoad oynatıcısı.
 
-Kotlin kaynak: Kekik-cloudstream/FilmMakinesi — CloseLoadExtractor.kt
 Ortak çözümleme mantığı `_fmk_base.py` içinde.
 """
 

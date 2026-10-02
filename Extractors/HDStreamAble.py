@@ -1,5 +1,4 @@
-# Bu araç @keyiflerolsun tarafından | @KekikAkademi için yazılmıştır.
-# Python portu: Kekik-cloudstream / HDStreamAbleExtractor.kt
+# Oluşturan: Burak Aydoğan
 #
 # Kotlin'da `PeaceMakerst` sınıfından türetiliyor (yalnızca mainUrl değişiyor).
 # ExtractorLoader dosya başına tek sınıf yüklediği için burada sınıf ayrı tanımlanıp

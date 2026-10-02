@@ -1,4 +1,4 @@
-# Bu araç @keyiflerolsun tarafından | @KekikAkademi için yazılmıştır.
+# Oluşturan: Burak Aydoğan
 
 import re
 import urllib.parse
@@ -14,7 +14,6 @@ from Core.Plugin.PluginModels import MovieInfo, MainPageResult, SearchResult
 class FilmModu(PluginBase):
     """FilmModu kaynak site kazıyıcısı (yalnızca filmler).
 
-    Kotlin kaynak: Kekik-cloudstream/FilmModu (com.keyiflerolsun.FilmModu).
     Site güncellendiği için yollar değişti:
       - Kategori : `/hd-film-kategori/*` -> `/film-tur/*`
       - Detay    : `div.titles h1/h2` -> `[itemprop=name]/[itemprop=alternateName]`

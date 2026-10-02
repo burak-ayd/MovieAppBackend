@@ -1,4 +1,4 @@
-# Bu araç @keyiflerolsun tarafından | @KekikAkademi için yazılmıştır.
+# Oluşturan: Burak Aydoğan
 
 import base64
 import json
@@ -16,7 +16,6 @@ from Core.Plugin.PluginModels import MovieInfo, MainPageResult, SearchResult
 class SinemaCX(PluginBase):
     """SinemaCX kaynak site kazıyıcısı (yalnızca filmler).
 
-    Kotlin kaynak: Kekik-cloudstream/SinemaCX (com.keyiflerolsun.SinemaCX).
     Site yeniden tasarlandığı için kart seçicileri güncel DOM'a göre yazıldı:
       - Karusel (ana sayfa) : `a.own-carousel__item.slayt_kutu`
       - Liste sayfaları     : `div.film_kutusu > a`

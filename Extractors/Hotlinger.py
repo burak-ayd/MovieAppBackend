@@ -1,5 +1,4 @@
-# Bu araç @keyiflerolsun tarafından | @KekikAkademi için yazılmıştır.
-# Python portu: Kekik-cloudstream / HotlingerExtractor.kt (class Hotlinger : ContentX())
+# Oluşturan: Burak Aydoğan
 
 from typing import Any, List, Optional, Union
 

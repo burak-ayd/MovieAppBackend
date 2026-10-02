@@ -6,8 +6,7 @@ from Core.Plugin.PluginBase import PluginBase
 from Core.Plugin.PluginModels import SearchResult, MainPageResult, MovieInfo, SeriesInfo, Episode
 
 
-# ! Bu araç @keyiflerolsun tarafından | @KekikAkademi için yazılmıştır.
-# Python portu: Kekik-cloudstream / Sinewix.kt
+# Oluşturan: Burak Aydoğan
 #
 # Site saf API tabanlıdır; HTML sayfaları 403 döner. Tüm veriler
 # /public/api/... uçlarından, `hash256` + `signature` başlıklarıyla gelir.

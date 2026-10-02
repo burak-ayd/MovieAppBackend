@@ -1,5 +1,4 @@
-# Bu araç @keyiflerolsun tarafından | @KekikAkademi için yazılmıştır.
-# Python portu: Kekik-cloudstream / VideoSeyredExtractor.kt
+# Oluşturan: Burak Aydoğan
 #
 # Akış: embed/{id} -> GET /playlist/{id}.json -> sources[].file + tracks[]
 

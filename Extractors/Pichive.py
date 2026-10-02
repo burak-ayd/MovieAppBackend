@@ -1,5 +1,4 @@
-# Bu araç @keyiflerolsun tarafından | @KekikAkademi için yazılmıştır.
-# Python portu: Kekik-cloudstream / DizillaPlugin.kt -> registerExtractorAPI(Pichive()) & FourPichive()
+# Oluşturan: Burak Aydoğan
 
 from typing import Any, List, Optional, Union
 

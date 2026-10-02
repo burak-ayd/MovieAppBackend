@@ -1,5 +1,4 @@
-# Bu araç @keyiflerolsun tarafından | @KekikAkademi için yazılmıştır.
-# Python portu: Kekik-cloudstream / DiziPal.kt
+# Oluşturan: Burak Aydoğan
 #
 # Oynatıcı zinciri (canlı doğrulandı):
 #   1) Bölüm sayfası -> `div[data-rm-k=true]` içinde {ciphertext, iv, salt}

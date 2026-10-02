@@ -1,5 +1,4 @@
-# Bu araç @keyiflerolsun tarafından | @KekikAkademi için yazılmıştır.
-# Python portu: Kekik-cloudstream / FullHDFilmizlesene.kt
+# Oluşturan: Burak Aydoğan
 #
 # Kaynak yapı (canlı doğrulandı):
 #   * Kategori/ana sayfa : `/filmizle/<kategori>` + sayfa numarası (ör. `.../1`)

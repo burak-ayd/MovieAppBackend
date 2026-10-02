@@ -1,5 +1,4 @@
-# Bu araç @keyiflerolsun tarafından | @KekikAkademi için yazılmıştır.
-# Python portu: Kekik-cloudstream / Dizilla/src/main/kotlin/com/keyiflerolsun/Dizilla.kt
+# Oluşturan: Burak Aydoğan
 
 import asyncio
 import base64

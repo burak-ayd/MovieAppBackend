@@ -1,5 +1,4 @@
-# Bu araç @keyiflerolsun tarafından | @KekikAkademi için yazılmıştır.
-# Python portu: Kekik-cloudstream / ContentXExtractor.kt (ve ondan türeyen alt sınıflar)
+# Oluşturan: Burak Aydoğan
 
 import json
 import re

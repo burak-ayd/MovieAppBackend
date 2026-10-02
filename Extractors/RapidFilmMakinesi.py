@@ -1,6 +1,7 @@
+# Oluşturan: Burak Aydoğan
+
 """FilmMakinesi Rapid oynatıcısı.
 
-Kotlin kaynak: Kekik-cloudstream/FilmMakinesi — RapidExtractor.kt
 Ortak çözümleme mantığı `_fmk_base.py` içinde.
 """
 

@@ -1,5 +1,4 @@
-# Bu araç @keyiflerolsun tarafından | @KekikAkademi için yazılmıştır.
-# Python portu: Kekik-cloudstream / DiziPalOriginal.kt
+# Oluşturan: Burak Aydoğan
 #
 # Oynatıcı zinciri (canlı doğrulandı):
 #   1) Bölüm sayfası  -> #videoContainer[data-cfg] (token) + PHPSESSID çerezi

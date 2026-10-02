@@ -1,4 +1,4 @@
-# Bu araç @keyiflerolsun tarafından | @KekikAkademi için yazılmıştır.
+# Oluşturan: Burak Aydoğan
 """Tek dosyadan tüm eklentileri test etme / oynatma aracı.
 
     python tests/EklentiTestAraci.py                    # eklenti listesinden seç, menüyle test et

@@ -1,5 +1,4 @@
-# Bu araç @keyiflerolsun tarafından | @KekikAkademi için yazılmıştır.
-# Python portu: Kekik-cloudstream / HDPlayerSystemExtractor.kt
+# Oluşturan: Burak Aydoğan
 #
 # Akış: oynatıcı sayfasındaki video kimliği -> POST /player/index.php
 #       -> JSON `securedLink` (m3u8)

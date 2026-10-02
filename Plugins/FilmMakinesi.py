@@ -1,4 +1,4 @@
-# Bu araç @keyiflerolsun tarafından | @KekikAkademi için yazılmıştır.
+# Oluşturan: Burak Aydoğan
 
 import re
 import urllib.parse
@@ -14,7 +14,6 @@ from Core.Plugin.PluginModels import Episode, MovieInfo, MainPageResult, SearchR
 class FilmMakinesi(PluginBase):
     """FilmMakinesi kaynak site kazıyıcısı (film + dizi).
 
-    Kotlin kaynak: Kekik-cloudstream/FilmMakinesi (com.keyiflerolsun.FilmMakinesi).
     Sayfa yapısı Kotlin ile aynı; `a.item` kartlarında zengin `data-*`
     attribute'ları bulunduğu için kartlar oradan besleniyor.
     """

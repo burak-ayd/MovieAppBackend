@@ -1,5 +1,4 @@
-# Bu araç @keyiflerolsun tarafından | @KekikAkademi için yazılmıştır.
-# Python portu: Kekik-cloudstream / TRsTXExtractor.kt
+# Oluşturan: Burak Aydoğan
 #
 # Akış: oynatıcı sayfası -> `file":"..."` -> POST /<file> -> JSON liste
 #       -> her kalem için POST /playlist/<file[1:]>.txt -> doğrudan m3u8 metni

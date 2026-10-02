@@ -1,5 +1,4 @@
-# Bu araç @keyiflerolsun tarafından | @KekikAkademi için yazılmıştır.
-# Python portu: Kekik-cloudstream / RapidVidExtractor.kt
+# Oluşturan: Burak Aydoğan
 #
 # İki nesil oynatıcı desteklenir:
 #   1) Yeni (2026): sayfadaki `window._p8='...'` → base64( ters ) → "K9L" kaydırması

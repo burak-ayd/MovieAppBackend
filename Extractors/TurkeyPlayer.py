@@ -1,5 +1,4 @@
-# Bu araç @keyiflerolsun tarafından | @KekikAkademi için yazılmıştır.
-# Python portu: Kekik-cloudstream / TurkeyPlayerExtractor.kt
+# Oluşturan: Burak Aydoğan
 #
 # Sayfadaki `var video = {...};` bloğundan id + md5 alınır ve master playlist
 # URL'si üretilir.

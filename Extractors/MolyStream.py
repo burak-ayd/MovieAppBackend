@@ -1,4 +1,4 @@
-# Bu araç @keyiflerolsun tarafından | @KekikAkademi için yazılmıştır.
+# Oluşturan: Burak Aydoğan
 from Core.Extractor import ExtractorBase, ExtractResult, Subtitle
 from Core.Helpers import konsol, HTMLHelper
 

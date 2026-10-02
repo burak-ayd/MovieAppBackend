@@ -1,5 +1,4 @@
-# Bu araç @keyiflerolsun tarafından | @KekikAkademi için yazılmıştır.
-# Python portu: Kekik-cloudstream / HDMomPlayerExtractor.kt
+# Oluşturan: Burak Aydoğan
 #
 # İki nesil oynatıcı desteklenir:
 #   1) bePlayer('<anahtar>', '{...}') -> AES çözme -> "video_location":"..."

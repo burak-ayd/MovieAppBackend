@@ -1,5 +1,4 @@
-# Bu araç @keyiflerolsun tarafından | @KekikAkademi için yazılmıştır.
-# Python portu: Kekik-cloudstream / SelcukFlix/src/main/kotlin/com/keyiflerolsun/SelcukFlix.kt
+# Oluşturan: Burak Aydoğan
 
 import asyncio
 import base64

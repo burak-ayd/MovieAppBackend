@@ -1,8 +1,7 @@
+# Oluşturan: Burak Aydoğan
+
 """FilmMakinesi oynatıcıları için ortak çözümleme tabanı.
 
-Kotlin kaynak: Kekik-cloudstream/FilmMakinesi
-  - CloseLoadExtractor.kt -> https://closeload.filmmakinesi.to
-  - RapidExtractor.kt     -> https://rapid.filmmakinesi.to
 
 İki oynatıcı da aynı şifreleme ailesini kullanıyor (paketlenmiş JS -> `dc_...`
 değiştirici -> XOR/Caesar karışımı). Mevcut `resolve_player_stream` bu
