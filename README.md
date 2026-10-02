@@ -156,7 +156,7 @@ Upstream ayrıca şu projelere teşekkür eder:
 ├── Plugins/                  # 12 kaynak eklentisi
 ├── ops/                      # container süreç yönetimi
 │   ├── supervisor.py         #   uvicorn + yeniden yükleme denetleyicisi
-│   ├── domain_watcher.py     #   zamanlanmış + hataya duyarlı domain güncellemesi
+│   ├── domain_watcher.py     #   09:00 + 18:00 slotlarında domain kontrolü/güncellemesi
 │   └── healthcheck.py        #   sağlık kontrolü
 ├── docker/entrypoint.sh      # container giriş noktası
 ├── Dockerfile
@@ -245,16 +245,24 @@ docker compose up -d --build
 
 ### Zamanlanmış görev ayarları
 
+Domain kontrolü **günde iki kez** yapılır: sabah `PROBE_HOUR:PROBE_MINUTE`
+slotunda yoklama, akşam `UPDATE_HOUR:UPDATE_MINUTE` slotunda yoklama + domain
+güncellemesi. Slotlar arasında dışarıya hiçbir istek atılmaz.
+
 | Değişken | Varsayılan | Açıklama |
 |---|---|---|
-| `UPDATE_HOUR` / `UPDATE_MINUTE` | `18` / `0` | Günlük güncelleme saati (`TZ` ile yorumlanır) |
-| `DOMAIN_CHECK_INTERVAL` | `300` | Hata yoklama aralığı (saniye) |
-| `ERROR_THRESHOLD` | `1` | Kaç ardışık hatadan sonra güncelleme |
+| `PROBE_HOUR` / `PROBE_MINUTE` | `9` / `0` | Sabah domain kontrolü saati (`TZ` ile yorumlanır) |
+| `UPDATE_HOUR` / `UPDATE_MINUTE` | `18` / `0` | Akşam slotu: kontrol + günlük güncelleme |
+| `HEARTBEAT_INTERVAL` | `60` | Bekleme sırasında kalp atışı aralığı (saniye, < 180 olmalı) |
+| `ERROR_THRESHOLD` | `1` | Kaç eklenti hata verirse güncelleme |
 | `ERROR_COOLDOWN` | `1800` | İki güncelleme arası en az bekleme |
 | `PROBE_QUERY` | `matrix` | Yoklama arama sorgusu |
 | `PROBE_REQUIRE_RESULTS` | `0` | Boş sonuç hata sayılsın mı (kapalı önerilir) |
 | `RUN_ON_START` | `0` | Watcher açılışta da bir kez güncellesin mi |
 | `API_WORKERS` | `1` | ⚠️ 1'den fazlası `Plugins/` dosyalarına eşzamanlı yazma riski taşır |
+
+> `DOMAIN_CHECK_INTERVAL` (eski 5 dakikalık yoklama aralığı) kullanımdan
+> kaldırıldı; artık yalnızca uyarı üretir ve yok sayılır.
 
 ### Elle domain güncelleme
 

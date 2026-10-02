@@ -133,7 +133,7 @@ services:
       - movieapp
 
   # ══════════════════════════════════════════════════════════════════════════
-  #  domain-updater — günlük 18:00'de ve domain hatası anında Kontrol.py
+  #  domain-updater — günde iki kez (sabah 09:00 / akşam 18:00) domain kontrolü
   # ══════════════════════════════════════════════════════════════════════════
   domain-updater:
     image: darkpuye/movieapp-api:latest
@@ -152,15 +152,18 @@ services:
       TZ: ${TZ:-Europe/Istanbul}
 
       # ── Zamanlama ───────────────────────────────────────────────────────
-      # Konteyner saat dilimiyle (TZ) yorumlanır. TZ=Europe/Istanbul ise
-      # UPDATE_HOUR=18 doğrudan akşam 18:00 demektir.
+      # Domain kontrolü GÜNDE İKİ KEZ yapılır ve saatler konteyner saat
+      # dilimiyle (TZ) yorumlanır. Slotlar arasında hiçbir ağ isteği atılmaz.
+      #   PROBE_HOUR:PROBE_MINUTE  → sabah slotu (yoklama)
+      #   UPDATE_HOUR:UPDATE_MINUTE → akşam slotu (yoklama + domain güncelleme)
+      PROBE_HOUR: ${PROBE_HOUR:-9}
+      PROBE_MINUTE: ${PROBE_MINUTE:-0}
       UPDATE_HOUR: ${UPDATE_HOUR:-18}
       UPDATE_MINUTE: ${UPDATE_MINUTE:-0}
 
       # ── Hata tetikleyicisi ──────────────────────────────────────────────
-      # Kaç saniyede bir eklenti domainleri yoklanır (varsayılan 5 dk).
-      DOMAIN_CHECK_INTERVAL: ${DOMAIN_CHECK_INTERVAL:-300}
-      # Kaç ardışık başarısız tur sonrası güncelleme çalışsın (1 = ilk hatada).
+      # Slot başındaki yoklamada kaç eklenti hata verirse güncelleme çalışsın
+      # (1 = ilk hatada).
       ERROR_THRESHOLD: ${ERROR_THRESHOLD:-1}
       # İki hata kaynaklı güncelleme arasındaki en az bekleme (saniye).
       ERROR_COOLDOWN: ${ERROR_COOLDOWN:-1800}
@@ -171,6 +174,9 @@ services:
       # Watcher'ın açılışta da bir kez güncellemesi (API zaten açılışta yapar).
       RUN_ON_START: ${RUN_ON_START:-0}
       KONTROL_TIMEOUT: ${KONTROL_TIMEOUT:-600}
+      # Slotlar arası beklemede kalp atışını tazeleme aralığı (saniye).
+      # healthcheck 180s sınırından küçük olmalıdır.
+      HEARTBEAT_INTERVAL: ${HEARTBEAT_INTERVAL:-60}
 
       # ⚠️ Aynı tuzak: container→container trafiği, public domain DEĞİL.
       API_INTERNAL_URL: ${API_INTERNAL_URL:-http://api:8000}

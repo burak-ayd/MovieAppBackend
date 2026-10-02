@@ -2,16 +2,27 @@
 """
 Domain güncelleyici (watcher).
 
-İki tetikleyici vardır:
+Domain kontrolü GÜNDE İKİ KEZ yapılır:
 
-  1) GÜNLÜK — `UPDATE_HOUR:UPDATE_MINUTE` (varsayılan 18:00, konteyner saat
-     dilimiyle, TZ=Europe/Istanbul) geldiğinde bir kez çalışır.
+  * sabah  `PROBE_HOUR:PROBE_MINUTE`  (varsayılan 09:00)
+  * akşam  `UPDATE_HOUR:UPDATE_MINUTE` (varsayılan 18:00)
 
-  2) HATA — API'yi düzenli aralıklarla yoklar; bir eklentinin domaini hata
-     verdiğinde (HTTP 5xx / zaman aşımı / DNS) Kontrol.py DERHAL çalışır.
+Slotlar dışında dışarıya HİÇBİR istek atılmaz; süreç yalnızca bekler ve
+kalp atışı dosyasını tazeler (docker healthcheck 180s sınırı için gerekli).
+Bu, her eklentiye 5 dakikada bir yapılan ağ yoklamasını tamamen ortadan
+kaldırır.
+
+Her slotta iki iş yapılır:
+
+  1) YOKLAMA — API üzerinden her eklenti için hafif bir arama isteği atılır.
+     Eşik aşılırsa (HTTP 5xx / zaman aşımı / DNS) Kontrol.py DERHAL çalışır.
      Yanlış pozitifleri (tek seferlik ağ hatası) elemek için
-     `ERROR_THRESHOLD` ardışık başarısız tur ve `ERROR_COOLDOWN` beklemesi
-     vardır.
+     `ERROR_THRESHOLD` ardışık başarısız slot ve `ERROR_COOLDOWN` bekleyerek
+     elenir.
+
+  2) GÜNCELLEME — yalnızca akşam slotunda: Kontrol.py çalışır, değişen
+     `main_url` değerleri yazılır ve supervisor API'yi zarifçe yeniden
+     başlatır.
 
 Nasıl çalışır:
 
@@ -55,19 +66,58 @@ PLUGINS_DIR = PROJECT_ROOT / "Plugins"
 # ── Ayarlar (docker-compose environment'ı ile geçersiz kılınabilir) ───────────
 API_BASE = os.getenv("API_INTERNAL_URL", "http://api:8000").rstrip("/")
 
-UPDATE_HOUR = int(os.getenv("UPDATE_HOUR", "18"))
-UPDATE_MINUTE = int(os.getenv("UPDATE_MINUTE", "0"))
+# Geçersiz ortam değerleri için toplanan uyarılar; `log()` tanımından sonra
+# main() içinde yazdırılır (modül yüklenirken log henüz yok).
+_uyarilar: list[str] = []
 
-# Hata yoklaması aralığı (saniye). Çok kısa seçilirse her eklenti için dış
-# siteye istek atılır; 5 dakika hem yeterli hem de nazik.
-CHECK_INTERVAL = max(30, int(os.getenv("DOMAIN_CHECK_INTERVAL", "300")))
 
-# Kaç ardışık tur başarısız olursa güncelleme tetiklensin. 1 = ilk hatada.
-ERROR_THRESHOLD = max(1, int(os.getenv("ERROR_THRESHOLD", "1")))
+def _env_int(name: str, default: int, minimum: int | None = None, maximum: int | None = None) -> int:
+    """Ortam değişkenini tam sayıya çevirir; geçersizse sınırlar içinde varsayılan."""
+    raw = os.getenv(name)
+    try:
+        value = int(raw) if raw not in (None, "") else default
+    except (TypeError, ValueError):
+        _uyarilar.append(f"{name}={raw!r} bir sayı değil; {default} kullanılıyor.")
+        return default
+
+    if minimum is not None and value < minimum:
+        _uyarilar.append(f"{name}={value} alt sınırın ({minimum}) altında; {minimum} kullanılıyor.")
+        return minimum
+    if maximum is not None and value > maximum:
+        _uyarilar.append(f"{name}={value} üst sınırın ({maximum}) üstünde; {maximum} kullanılıyor.")
+        return maximum
+    return value
+
+
+def _env_slot(name_hour: str, name_minute: str, fallback: tuple[int, int]) -> tuple[int, int]:
+    """`HH` + `MM` ortam değerlerini doğrular; saat 0-23, dakika 0-59 olmalı."""
+    return _env_int(name_hour, fallback[0], 0, 23), _env_int(name_minute, fallback[1], 0, 59)
+
+
+# Günlük domain kontrolü iki slotta yapılır (konteyner saat dilimiyle, TZ):
+#   PROBE_HOUR:PROBE_MINUTE  → sabah slotu (varsayılan 09:00)
+#   UPDATE_HOUR:UPDATE_MINUTE → akşam slotu (varsayılan 18:00), güncelleme de
+#                              burada yapılır.
+UPDATE_HOUR, UPDATE_MINUTE = _env_slot("UPDATE_HOUR", "UPDATE_MINUTE", (18, 0))
+PROBE_HOUR, PROBE_MINUTE = _env_slot("PROBE_HOUR", "PROBE_MINUTE", (9, 0))
+
+# Bekleme sırasında kalp atışını tazeleme aralığı (saniye). Docker healthcheck
+# `watcher_heartbeat` yaşını 180s ile ölçer; slotlar arasında da tazelik
+# korunabilsin diye 180'den küçük tutulur. Bu uyku ağ isteği atmaz.
+HEARTBEAT_INTERVAL = _env_int("HEARTBEAT_INTERVAL", 60, 10, 150)
+
+if os.getenv("DOMAIN_CHECK_INTERVAL"):
+    _uyarilar.append(
+        "DOMAIN_CHECK_INTERVAL artık kullanılmıyor — yoklama günde iki kez "
+        "(PROBE_HOUR ve UPDATE_HOUR) yapılır, aralık yoktur."
+    )
+
+# Kaç ardışık slot başarısız olursa güncelleme tetiklensin. 1 = ilk hatada.
+ERROR_THRESHOLD = _env_int("ERROR_THRESHOLD", 1, 1)
 # İki hata kaynaklı güncelleme arasındaki en az bekleme (saniye).
-ERROR_COOLDOWN = max(0, int(os.getenv("ERROR_COOLDOWN", "1800")))
+ERROR_COOLDOWN = _env_int("ERROR_COOLDOWN", 1800, 0)
 # Kontrol.py'nin çalışma süresi üst sınırı (saniye).
-RUN_TIMEOUT = max(60, int(os.getenv("KONTROL_TIMEOUT", "600")))
+RUN_TIMEOUT = _env_int("KONTROL_TIMEOUT", 600, 60)
 # Watcher başlarken bir kez güncelleme yapsın mı? (kapalı: API açılışta zaten
 # `api/deps.py` → `get_plugin_manager()` içinde Kontrol'ü çalıştırıyor.)
 RUN_ON_START = os.getenv("RUN_ON_START", "0").strip().lower() in ("1", "true", "yes", "on")
@@ -109,13 +159,35 @@ def touch_heartbeat() -> None:
         log(f"UYARI: kalp atışı yazılamadı: {e}")
 
 
-def next_scheduled_run(now: datetime | None = None) -> datetime:
-    """Bir sonraki `UPDATE_HOUR:UPDATE_MINUTE` yerel zamanı."""
+def slot_listesi() -> list[tuple[int, int]]:
+    """Günün domain kontrolü slotları, sıralı ve tekilleştirilmiş."""
+    return sorted({(PROBE_HOUR, PROBE_MINUTE), (UPDATE_HOUR, UPDATE_MINUTE)})
+
+
+def next_event(now: datetime | None = None) -> tuple[datetime, tuple[int, int]]:
+    """
+    Sıradaki domain kontrolü slotunun yerel zamanı ve `saat:dakika` etiketi.
+
+    Bugünün slotları geçtiyse yarının ilk slotuna döner. Bir slot İŞLENDİKTEN
+    SONRA çağrıldığında aynı slota geri dönülmemesini bu "geçmiş" kuralı
+    sağlar; bu yüzden hedef zaman döngüde ayrıca taşınmalıdır.
+    """
     now = now or datetime.now().astimezone()
-    target = now.replace(hour=UPDATE_HOUR, minute=UPDATE_MINUTE, second=0, microsecond=0)
-    if target <= now:
-        target += timedelta(days=1)
-    return target
+    slotlar = slot_listesi()
+
+    for hour, minute in slotlar:
+        target = now.replace(hour=hour, minute=minute, second=0, microsecond=0)
+        if target > now:
+            return target, (hour, minute)
+
+    ilk_saat, ilk_dakika = slotlar[0]
+    yarin = (now + timedelta(days=1)).replace(hour=ilk_saat, minute=ilk_dakika, second=0, microsecond=0)
+    return yarin, (ilk_saat, ilk_dakika)
+
+
+def next_scheduled_run(now: datetime | None = None) -> datetime:
+    """Bir sonraki domain kontrolü slotunun yerel zamanı."""
+    return next_event(now)[0]
 
 
 def snapshot_main_urls() -> dict[str, str]:
@@ -194,11 +266,11 @@ def kontrol_lock():
     """
     Çapraz-konteyner kilidi (Kontrol.py tek seferlik çalışmalı).
 
-    Beklenen durum: watcher 18:00'de, API yeniden başlarken kendi açılış
-    Kontrol'ünü çalıştırıyor olabilir (`api/deps.py::get_plugin_manager`).
+    Beklenen durum: watcher akşam slotunda, API yeniden başlarken kendi
+    açılış Kontrol'ünü çalıştırıyor olabilir (`api/deps.py::get_plugin_manager`).
     İkisi aynı `Plugins/*.py` dosyasına yazmaya çalışırsa dosya bozulabilir.
-    Kilit meşgulse bu çalıştırma ATLANIR — 5 dakika sonraki turda yeniden
-    denenir veya bir sonraki günlük koşu devralır.
+    Kilit meşgulse bu çalıştırma ATLANIR ve bir sonraki domain kontrolü
+    slotunda (sabah 09:00 / akşam 18:00) yeniden denenir.
 
     Yield değerleri:
         True  → kilit alındı, çalıştırılabilir
@@ -387,7 +459,7 @@ def probe_plugins(names: list[str]) -> tuple[list[str], list[str]]:
 
 
 def check_domains() -> list[str]:
-    """Tek bir yoklama turu. Hata eşiğini aşarsa Kontrol tetiklenir."""
+    """Tek bir yoklama turu (sabah 09:00 / akşam 18:00). Hata eşiğini aşarsa Kontrol tetiklenir."""
     log("Eklenti domainleri yoklanıyor...")
 
     names = list_plugins()
@@ -427,11 +499,16 @@ def main() -> int:
 
     STATE_DIR.mkdir(parents=True, exist_ok=True)
 
-    now = datetime.now().astimezone()
-    upcoming = next_scheduled_run(now)
+    for uyari in _uyarilar:
+        log(f"UYARI: {uyari}")
+
+    upcoming, _ = next_event()
+    slotlar = ", ".join(f"{hour:02d}:{minute:02d}" for hour, minute in slot_listesi())
+
     log(f"Başladı. API: {API_BASE}")
-    log(f"Zaman dilimi: {time.tzname[0]} | Günlük güncelleme: {upcoming:%Y-%m-%d %H:%M}")
-    log(f"Yoklama aralığı: {CHECK_INTERVAL}s | Hata eşiği: {ERROR_THRESHOLD} | Bekleme: {ERROR_COOLDOWN}s")
+    log(f"Zaman dilimi: {time.tzname[0]} | Domain kontrolü: {slotlar}")
+    log(f"Sıradaki kontrol: {upcoming:%Y-%m-%d %H:%M} | Güncelleme: {UPDATE_HOUR:02d}:{UPDATE_MINUTE:02d}")
+    log(f"Hata eşiği: {ERROR_THRESHOLD} | Bekleme: {ERROR_COOLDOWN}s | Kalp atışı: {HEARTBEAT_INTERVAL}s")
 
     if RUN_ON_START:
         log("RUN_ON_START=1 — açılışta bir kez güncelleniyor.")
@@ -441,23 +518,28 @@ def main() -> int:
 
     consecutive_failures = 0
     last_error_run = 0.0
-    next_run = upcoming
+
+    # Sıradaki slot DÖNGÜ BOYUNCA taşınır. Her turda yeniden hesaplanırsa,
+    # uyku tam slot anında bittiğinde ("09:00:00.000") slot "geçmiş" sayılır
+    # ve gün boyunca bir daha tetiklenmez. `>=` karşılaştırması bu yüzden
+    # hedefi bilinçli olarak dışarıda tutar.
+    hedef, slot = next_event()
 
     while not _stop.is_set():
-        now = datetime.now().astimezone()
         touch_heartbeat()
+        now = datetime.now().astimezone()
+        kalan = (hedef - now).total_seconds()
 
-        # ── 1) Günlük zaman aşımı ──────────────────────────────────────────
-        if now >= next_run:
-            log(f"Günlük güncelleme zamanı geldi ({next_run:%H:%M}).")
-            run_kontrol("schedule")
-            next_run = next_scheduled_run()
-            log(f"Bir sonraki günlük güncelleme: {next_run:%Y-%m-%d %H:%M}")
-            # Günlük koşudan sonra hemen yoklama yapmayı atla.
-            sleep_until_or_stop(CHECK_INTERVAL)
+        # ── 1) Slotlar arası: yalnızca bekle ───────────────────────────────
+        # Burada dışarıya hiçbir istek atılmaz; sadece kısa aralıklarla
+        # beklenip kalp atışı tazelenir (healthcheck 180s sınırı).
+        if kalan > 0:
+            sleep_until_or_stop(min(HEARTBEAT_INTERVAL, kalan))
             continue
 
-        # ── 2) Hata yoklaması ──────────────────────────────────────────────
+        # ── 2) Slot zamanı: eklenti domainlerini yokla ─────────────────────
+        slot_saat, slot_dakika = slot
+        log(f"Domain kontrolü slotu geldi: {slot_saat:02d}:{slot_dakika:02d}.")
         failed = check_domains()
 
         if failed:
@@ -475,12 +557,19 @@ def main() -> int:
             else:
                 remaining = ERROR_COOLDOWN - elapsed
                 log(f"Bekleme süresi dolmadı ({remaining:.0f}s kaldı), güncelleme ertelendi.")
-        else:
-            log(f"Hata eşiği dolmadı (1/{ERROR_THRESHOLD}); bir sonraki turda tekrar denenecek.")
+        elif failed:
+            log(f"Hata eşiği dolmadı ({len(failed)}/{ERROR_THRESHOLD}); sonraki yoklamada tekrar denenecek.")
 
-        # ── 3) Bir sonraki olaya kadar bekle ──────────────────────────────
-        until_schedule = (next_run - datetime.now().astimezone()).total_seconds()
-        sleep_until_or_stop(max(1.0, min(CHECK_INTERVAL, until_schedule)))
+        # ── 3) Akşam slotunda günlük güncelleme ───────────────────────────
+        if (slot_saat, slot_dakika) == (UPDATE_HOUR, UPDATE_MINUTE):
+            log("Günlük güncelleme zamanı geldi.")
+            run_kontrol("schedule")
+        else:
+            log("Bu slot yalnızca yoklama; günlük güncelleme akşam slotunda yapılır.")
+
+        # Slot işlendi → sıradaki slotu hesapla (artık geçmiş sayılır).
+        hedef, slot = next_event()
+        log(f"Bir sonraki domain kontrolü: {hedef:%Y-%m-%d %H:%M}")
 
     log("Kapatıldı.")
     return 0

@@ -99,7 +99,7 @@ case "$ROLE" in
         exec python /app/ops/supervisor.py
         ;;
     watcher)
-        log "Rol: watcher — günlük ${UPDATE_HOUR:-18}:$(printf '%02d' "${UPDATE_MINUTE:-0}") ve hata anında domain güncellemesi"
+        log "Rol: watcher — günde iki kez domain kontrolü: ${PROBE_HOUR:-9}:$(printf '%02d' "${PROBE_MINUTE:-0}") (yoklama) ve ${UPDATE_HOUR:-18}:$(printf '%02d' "${UPDATE_MINUTE:-0}") (yoklama + güncelleme)"
         exec python /app/ops/domain_watcher.py
         ;;
     kontrol)

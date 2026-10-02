@@ -67,10 +67,15 @@ services:
 
     environment:
       TZ: ${TZ:-Europe/Istanbul}
-      # Yerelde sık sık denemek için: 5 dakikada bir yokla.
-      DOMAIN_CHECK_INTERVAL: ${DOMAIN_CHECK_INTERVAL:-300}
+      # Prodüksiyonla aynı günde iki slot (sabah 09:00 / akşam 18:00).
+      PROBE_HOUR: ${PROBE_HOUR:-9}
+      PROBE_MINUTE: ${PROBE_MINUTE:-0}
       UPDATE_HOUR: ${UPDATE_HOUR:-18}
       UPDATE_MINUTE: ${UPDATE_MINUTE:-0}
+      # Slotlar arası bekleme çok uzun olacağı için yerelde container
+      # açılırken bir kez çalıştır: aksi halde testler ilk slota (en fazla
+      # ~9 saat) kadar beklerdi.
+      RUN_ON_START: ${RUN_ON_START:-1}
       # Güncelleme yapınca API'yi yeniden yüklemek yerine sadece logla:
       # yerelde uvicorn --reload zaten dosya değişimini algılar ve yeniden
       # başlar; çift yeniden başlatma kafa karıştırıcıdır.
