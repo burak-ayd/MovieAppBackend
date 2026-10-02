@@ -37,6 +37,17 @@ from pathlib import Path
 PROJECT_ROOT = Path(os.getenv("PROJECT_ROOT", "/app"))
 STATE_DIR = Path(os.getenv("STATE_DIR", "/state"))
 
+# Sürüm bilgisi (`app_version.py`) bilerek bağımlılıksız: supervisor yalnızca
+# stdlib kullanır. Dosya yoksa (eski imaj) API çalışmaya devam eder.
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+try:
+    from app_version import resolve_version
+except ImportError:  # pragma: no cover - imajda app_version.py yoksa
+    def resolve_version() -> str:
+        return os.getenv("APP_VERSION") or "bilinmiyor"
+
 HOST = os.getenv("API_HOST", "0.0.0.0")
 PORT = os.getenv("PORT", "8000")
 WORKERS = max(1, int(os.getenv("API_WORKERS", "1")))
@@ -109,7 +120,7 @@ def build_command() -> list[str]:
 
 
 def start_server() -> subprocess.Popen:
-    log(f"API başlatılıyor: {' '.join(build_command())}")
+    log(f"{resolve_version()} — API başlatılıyor: {' '.join(build_command())}")
     # cwd=PROJECT_ROOT şart: Kontrol.py `ana_dizin="."` (yani cwd) ve
     # PluginLoader `plugins_dir="Plugins"` (göreli yol) kullanıyor.
     return subprocess.Popen(build_command(), cwd=str(PROJECT_ROOT))
@@ -159,6 +170,7 @@ def write_status(**fields) -> None:
             "updated_at": datetime.now().astimezone().isoformat(timespec="seconds"),
             "pid": os.getpid(),
             "workers": WORKERS,
+            "version": resolve_version(),
             **fields,
         }
         STATUS_FILE.write_text(
@@ -189,6 +201,10 @@ def main() -> int:
     signal.signal(signal.SIGINT, handle_signal)
 
     STATE_DIR.mkdir(parents=True, exist_ok=True)
+
+    # Sürüm, uygulama ayakta olmadan da görülebilsin diye burada da yazılır:
+    # API çökse bile "hangi sürüm denendi?" sorusu cevaplanır.
+    log(f"MovieApp API {resolve_version()} — supervisor başlatıldı.")
 
     # Uygulama açılışta zaten Control çalıştırır; yine de durum dosyasına
     # başlangıç zamanını yaz ki "API ne zaman ayağa kalktı" sorusu cevaplanabilsin.

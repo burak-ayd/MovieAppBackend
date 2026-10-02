@@ -119,10 +119,11 @@ Upstream ayrıca şu projelere teşekkür eder:
 - JWT doğrulaması asimetrik (JWKS) veya simetrik (HS256) modu otomatik seçer
 - Türkçe, düz okunabilir hata mesajları (`detail` her zaman metin)
 - CORS varsayılan olarak **kapalı** — beyaz liste gerekir
+- Sürüm bilgisi tek kaynaktan (`app_version.py`): sağlık ucu, Swagger ve loglar
 
 **Domain kendini onarma**
 - `Core/Helpers/Kontrol.py` eklenti `main_url` değerlerini otomatik günceller
-- Günlük 18:00 + bir eklenti hata verdiğinde anında çalışır
+- Günde iki kez: sabah 09:00 (kontrol) ve akşam 18:00 (kontrol + güncelleme)
 - Güncellenen domainler kalıcıdır ve çalışan API'ye **yeniden yüklenir**
 
 **Dağıtım**
@@ -159,6 +160,7 @@ Upstream ayrıca şu projelere teşekkür eder:
 │   ├── domain_watcher.py     #   09:00 + 18:00 slotlarında domain kontrolü/güncellemesi
 │   └── healthcheck.py        #   sağlık kontrolü
 ├── docker/entrypoint.sh      # container giriş noktası
+├── app_version.py            #   sürümün TEK kaynağı (1.2.0)
 ├── Dockerfile
 ├── docker-compose.yml        # üretim (Coolify)
 └── docker-compose.dev.yml    # yerel geliştirme
@@ -203,7 +205,7 @@ docker compose up -d --build
 | Servis | Görev | Port |
 |---|---|---|
 | `api` | FastAPI (uvicorn) + yeniden yükleme denetleyicisi | 8000 |
-| `domain-updater` | Domain güncelleyici (18:00 + hata anında) | — |
+| `domain-updater` | Domain güncelleyici (sabah 09:00 + akşam 18:00) | — |
 
 İki birim hacmi kritiktir:
 
@@ -243,6 +245,31 @@ docker compose up -d --build
 > oraya boş bir varsayılan koymak, Coolify'in inject ettiği değerleri ezer.
 > Blok bilinçli olarak yalnızca operasyonel değişkenleri içerir.
 
+### Sürüm bilgisi
+
+Sürümün **tek kaynağı** proje kökündeki `app_version.py` dosyasıdır:
+
+```python
+APP_VERSION = "1.2.0"
+```
+
+Bu değer şu yüzeylerde otomatik görünür — hiçbirini ayrıca güncellemeniz gerekmez:
+
+| Yüzey | Örnek |
+|---|---|
+| Sağlık ucu | `GET /` → `{"status":"ok","version":"1.2.0","docs":"/docs"}` |
+| Swagger / OpenAPI | `/docs`, `/openapi.json` → `info.version` |
+| Başlangıç logu | `MovieApp API 1.2.0 başlatılıyor...` |
+| Supervisor durumu | `/state/api_status.json` → `"version": "1.2.0"` |
+| Container healthcheck | `http://127.0.0.1:8000/ → HTTP 200 (sürüm 1.2.0)` |
+
+Kodu düzenlemeden geçici olarak farklı sürüm basmak için `APP_VERSION` ortam
+değişkeni ayarlanabilir (örn. CI etiketinden gelen sürüm).
+
+```bash
+curl -s https://movieapi.burakaydogan.net.tr/ | jq .version
+```
+
 ### Zamanlanmış görev ayarları
 
 Domain kontrolü **günde iki kez** yapılır: sabah `PROBE_HOUR:PROBE_MINUTE`
@@ -259,6 +286,7 @@ güncellemesi. Slotlar arasında dışarıya hiçbir istek atılmaz.
 | `PROBE_QUERY` | `matrix` | Yoklama arama sorgusu |
 | `PROBE_REQUIRE_RESULTS` | `0` | Boş sonuç hata sayılsın mı (kapalı önerilir) |
 | `RUN_ON_START` | `0` | Watcher açılışta da bir kez güncellesin mi |
+| `APP_VERSION` | `1.2.0` | `app_version.py` yerine geçici sürüm damgası |
 | `API_WORKERS` | `1` | ⚠️ 1'den fazlası `Plugins/` dosyalarına eşzamanlı yazma riski taşır |
 
 > `DOMAIN_CHECK_INTERVAL` (eski 5 dakikalık yoklama aralığı) kullanımdan
@@ -276,7 +304,7 @@ docker compose run --rm domain-updater kontrol
 
 | Yöntem | Yol | Açıklama |
 |---|---|---|
-| `GET` | `/` | Sağlık ucu |
+| `GET` | `/` | Sağlık ucu (`status`, `version`, `docs`) |
 | `GET` | `/api/plugins` | Yüklü eklentiler ve `main_url` bilgisi |
 | `GET` | `/api/search?q=` | Tüm eklentilerde paralel arama |
 | `GET` | `/api/plugins/{name}` | Eklenti detayı |

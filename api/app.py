@@ -71,6 +71,7 @@ from Core.Libs.SupabaseAuth import (  # noqa: E402
     resolve_service_role_key,
     resolve_supabase_url,
 )
+from app_version import APP_NAME, resolve_version  # noqa: E402
 
 
 # ── Yapılandırma ─────────────────────────────────────────────────────────────
@@ -199,24 +200,27 @@ async def _report_verification_mode() -> None:
 async def lifespan(app: FastAPI):
     """Uygulama yaşam döngüsü: başlatma ve kapatma işlemleri."""
     # ── Startup ──
+    # Sürüm ilk satırda: "hangi sürüm çalışıyor?" sorusu loglardan okunur.
+    konsol.log(f"[bold cyan]{APP_NAME}[/] [bold]sürüm {resolve_version()}[/] başlatılıyor...")
     _validate_config()
     await _report_verification_mode()
     pm = get_plugin_manager()          # Eklentileri önceden yükle
     yield
     # ── Shutdown ──
+    konsol.log(f"[cyan]{APP_NAME} {resolve_version()}[/] kapanıyor...")
     await pm.close_plugins()           # HTTP oturumlarını temizle
     await get_supabase_async().close_async()   # PostgREST bağlantılarını kapat
     await get_auth_manager().close()           # GoTrue bağlantılarını kapat
 
 
 app = FastAPI(
-    title="MovieApp API",
+    title=APP_NAME,
     description=(
         "Film ve dizi eklentilerini yöneten, arama yapan, "
         "içerik detaylarını getiren ve izleme bağlantılarını çıkaran REST API. "
         "Ayrıca kullanıcı hesabı ve cihazlar arası senkronizasyon uçları."
     ),
-    version="1.1.0",
+    version=resolve_version(),
     lifespan=lifespan,
 )
 
@@ -354,9 +358,15 @@ app.include_router(sync_router)
 # ── Kök endpoint ─────────────────────────────────────────────────────────────
 @app.get("/", tags=["root"], summary="API durumu")
 async def root():
-    """API'nin çalıştığını doğrulamak için basit bir sağlık kontrolü."""
+    """
+    API'nin çalıştığını doğrulamak için basit bir sağlık kontrolü.
+
+    `version` alanı `app_version.APP_VERSION` kaynağından gelir; container
+    healthcheck'i ve teşhis komutları bu ucu okur.
+    """
     return {
         "status": "ok",
-        "message": "MovieApp API çalışıyor",
+        "message": f"{APP_NAME} çalışıyor",
+        "version": resolve_version(),
         "docs": "/docs",
     }

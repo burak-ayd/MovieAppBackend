@@ -17,6 +17,7 @@ büyümüyor, ayrıca `python` zaten PATH'in ilk sırasında.
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import sys
 import time
@@ -31,13 +32,27 @@ def _log(message: str) -> None:
     print(f"[healthcheck] {message}", flush=True)
 
 
+def _read_version(response) -> str:
+    """
+    Sağlık ucundan sürümü okur (`{"version": "1.2.0"}`).
+
+    Yanıt beklenmedik biçimde bozuksa healthcheck'in kendisini BAŞARISIZ
+    göstermemelidir: sürüm yalnızca teşhis bilgisidir, okunamazsa "bilinmiyor".
+    """
+    try:
+        return str(json.loads(response.read()).get("version") or "bilinmiyor")
+    except Exception:
+        return "bilinmiyor"
+
+
 def check_api(port: int, timeout: float) -> bool:
     """GET / ucu 200 döndürüyor mu? (Uygulama hazırsa tam olarak budur.)"""
     url = f"http://127.0.0.1:{port}/"
     try:
         with urllib.request.urlopen(url, timeout=timeout) as response:
             ok = response.status == 200
-            _log(f"{url} → HTTP {response.status}")
+            surum = _read_version(response)
+            _log(f"{url} → HTTP {response.status} (sürüm {surum})")
             return ok
     except urllib.error.HTTPError as e:
         _log(f"{url} → HTTP {e.code}")

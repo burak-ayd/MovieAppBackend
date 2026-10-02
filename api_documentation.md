@@ -26,7 +26,7 @@ Plan: `SYNC_AUTH_PLAN.md` (Faz 1–3, backend).
 
 | Yöntem | Endpoint | Açıklama |
 |--------|----------|----------|
-| `GET` | `/` | API sağlık kontrolü |
+| `GET` | `/` | API sağlık kontrolü (`status` + `version`) |
 | `GET` | `/api/plugins` | Tüm eklentileri listele |
 | `GET` | `/api/plugins/{name}` | Eklenti detayı |
 | `GET` | `/api/plugins/{name}/categories` | Eklenti kategorileri |

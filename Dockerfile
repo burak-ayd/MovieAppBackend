@@ -120,7 +120,8 @@ USER app
 EXPOSE 8000
 
 # Coolify bu healthcheck'i kullanarak proxy'yi yönlendirmeye başlatır.
-# Uygulamanın kendi sağlık ucu: GET /  → {"status":"ok", ...}
+# Uygulamanın kendi sağlık ucu: GET /  → {"status":"ok","version":"1.2.0", ...}
+# (sürüm `app_version.py`'den gelir; healthcheck logu da sürümü yazar)
 HEALTHCHECK --interval=30s --timeout=10s --start-period=45s --retries=5 \
     CMD python /app/ops/healthcheck.py api || exit 1
 
