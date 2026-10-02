@@ -103,9 +103,16 @@ COPY --chown=app:app . /app
 # chmod +x ZORUNLU: proje Windows üzerinde geliştirildiği için git bu dosyayı
 # 100644 (çalıştırılabilir değil) olarak görebilir. İmaj içinde izin verilmezse
 # entrypoint "permission denied" ile ölür ve konteyner hiç açılmaz.
+#
+# 🔴 `mkdir -p /app/.seed` ŞART. `cp -a /app/Plugins /app/.seed/Plugins` hedef
+#    üst dizini yoksa "No such file or directory" ile başarısız olur.
+#    `rm -rf` ise idempotency sağlar: `cp -a` hedef dizin ZATEN varsa iç içe
+#    `/app/.seed/Plugins/Plugins/` üretir (sessiz bozulma).
 RUN chmod +x /app/docker/entrypoint.sh \
+    && rm -rf /app/.seed \
+    && mkdir -p /app/.seed /state \
     && cp -a /app/Plugins /app/.seed/Plugins \
-    && mkdir -p /state \
+    && test -f /app/.seed/Plugins/__init__.py \
     && chown -R app:app /state /app
 
 USER app

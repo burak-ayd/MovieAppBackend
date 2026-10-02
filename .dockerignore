@@ -35,6 +35,11 @@ test_*.py
 .DS_Store
 Thumbs.db
 
+# ── Build artikları ──────────────────────────────────────────────────────────
+# /app/.seed imajın İÇİNDE üretilir. Kaynak ağacında varsa derleme bağlamına
+# girer ve `cp -a` iç içe `/app/.seed/Plugins/Plugins/` üretir.
+.seed
+
 # ── Docker ile ilgili dosyalar (bağlam zaten Dockerfile'ı içerir) ────────────
 .dockerignore
 docker-compose*.yml
