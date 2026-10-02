@@ -48,7 +48,6 @@
 name: movieapp
 
 services:
-
   # ══════════════════════════════════════════════════════════════════════════
   #  api — FastAPI + yeniden yükleme denetleyicisi
   # ══════════════════════════════════════════════════════════════════════════
@@ -92,14 +91,16 @@ services:
       #    API konteyneriyle aynı ağda değilse domain güncelleme SESSİZCE durur.
       API_INTERNAL_URL: ${API_INTERNAL_URL:-http://api:8000}
 
-    ports:
-      # Coolify bu portu algılar ve domain yönlendirmesini buna bağlar:
-      # movieapi.burakaydogan.net.tr → 8000
-      #
-      # ⚠️ API_BIND'i 127.0.0.1 YAPMAYIN: Coolify'in proxy'si konteynere
-      #    published port üzerinden bağlanır; localhost'a bağlarsanız domain
-      #    dışarıdan erişilemez olur.
-      - "${API_BIND:-0.0.0.0}:${API_PORT:-8000}:8000"
+    labels:
+      - coolify.managed=true
+      - traefik.enable=true
+      - traefik.docker.network=coolify
+      - traefik.http.routers.movieapi.rule=Host(`movieapi.burakaydogan.net.tr`)
+      - traefik.http.routers.movieapi.entrypoints=https
+      - traefik.http.routers.movieapi.tls=true
+      - traefik.http.routers.movieapi.tls.certresolver=letsencrypt
+      - traefik.http.routers.movieapi.service=movieapi-svc
+      - traefik.http.services.movieapi-svc.loadbalancer.server.port=8000
 
     volumes:
       # Kontrol.py'nin güncellediği eklenti dosyaları — kalıcı olmalı.
@@ -130,7 +131,6 @@ services:
 
     networks:
       - movieapp
-
 
   # ══════════════════════════════════════════════════════════════════════════
   #  domain-updater — günlük 18:00'de ve domain hatası anında Kontrol.py
@@ -196,7 +196,15 @@ services:
     healthcheck:
       # "Süreç ayakta ama iş yapmıyor" durumunu yakalar: kalp atışı
       # dosyasının yaşı 180 saniyeyi aşarsa unhealthy olur.
-      test: ["CMD", "python", "/app/ops/healthcheck.py", "watcher", "--max-age", "180"]
+      test:
+        [
+          "CMD",
+          "python",
+          "/app/ops/healthcheck.py",
+          "watcher",
+          "--max-age",
+          "180",
+        ]
       interval: 60s
       timeout: 10s
       retries: 3
@@ -215,7 +223,6 @@ services:
 
     networks:
       - movieapp
-
 
 volumes:
   # Kontrol.py'nin yazdığı eklenti dosyaları (main_url güncellemeleri).
