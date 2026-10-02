@@ -24,7 +24,7 @@
 #      ─────────────────────────────────────
 #      toplam ...............  ~65   MB   (178 MB'ten düştü)
 #
-#  Taban: python:3.12-slim-bookworm (~125 MB).
+#  Taban: python:3.14-slim (~130 MB).
 #  Alpine MÜMKÜN DEĞİL: selectolax yalnızca manylinux (glibc) tekerlek
 #  yayımlıyor; musl'da kaynak koddan derlenmesi gerekirdi. Bu yüzden slim.
 #
@@ -36,7 +36,7 @@
 
 # ── 1) Bağımlılık derleme aşaması ─────────────────────────────────────────────
 # Yalnızca bu aşamaya kurulur; sonuç (runtime) imajına sadece /opt/venv taşınır.
-FROM python:3.12-slim-bookworm AS builder
+FROM python:3.14-slim AS builder
 
 ENV PIP_NO_CACHE_DIR=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \
@@ -61,13 +61,13 @@ RUN python -m venv /opt/venv \
 
 
 # ── 2) Çalışma (runtime) imajı ───────────────────────────────────────────────
-FROM python:3.12-slim-bookworm AS runtime
+FROM python:3.14-slim AS runtime
 
 ARG APP_UID=10001
 ARG APP_GID=10001
 
 # TZ: 18:00 güncellemesinin yerel saatte çalışması için tzdata şart.
-# (python:3.12-slim içinde zoneinfo bulunmadığından paket kurulmalı.)
+# (python:3.14-slim içinde yerel saat yapılandırması için tzdata kurulmalı.)
 # Başka paket KURULMAZ: curl vb. eklendiğinde ~5 MB ve bağımlılıkları gelir.
 # Sağlık kontrolu stdlib urllib kullanır, curl'a ihtiyaç duymaz.
 ENV TZ=Europe/Istanbul \
