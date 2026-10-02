@@ -4,136 +4,109 @@
 #  Bu dosyada `build:` YOKTUR. İmaj Docker Hub'dan çekilir; sunucuda kaynak
 #  kodu veya Docker build zinciri bulunmaz.
 #
-#  ── Üç dosyanın görevi ──────────────────────────────────────────────────────
-#    docker-compose.build.yml → imajı ÜRET ve Docker Hub'a GÖNDER
-#                                 (yalnızca geliştirme makinesinde çalıştırılır)
-#    docker-compose.yml       → bu dosya; imajı ÇEK ve ÇALIŞTIR
-#                                 (Coolify ve production sunucusu)
-#    docker-compose.dev.yml   → yerel geliştirme (kaynak kod + hot reload)
+#  İmaj: darkpuye/movieapp-api:latest
 #
-#  ── İmajı üretip gönderme (tek seferlik, geliştirme makinesinde) ─────────────
-#    docker compose -f docker-compose.build.yml build
-#    docker compose -f docker-compose.build.yml push
+#  ── Bu dosya neden YAML anchor kullanmıyor? ─────────────────────────────────
+#  Önceki sürümde `x-app: &app` + `<<: *app` ile ortak blok kullanılıyordu.
+#  Coolify'ın Compose ayrıştırıcısı merge key'i (`<<:`) bazı sürümlerde
+#  desteklemediği için ortak yapılandırma DAĞINIK kalıyordu: kod okuyan bir
+#  servis sadece `<<: *app` görüp geri kalanı kaçırıyordu. Bu sürümde her
+#  servis kendi ayarlarını AÇIKÇA taşır — daha uzun ama tek doğruluk kaynağı var
+#  ve her ayrıştırıcıda aynı sonucu verir.
+#
+#  ── Üç dosyanın görevi ──────────────────────────────────────────────────────
+#    docker-compose.build.yml → imajı ÜRET ve Docker Hub'a GÖNDER (geliştirme)
+#    docker-compose.yml       → bu dosya; imajı ÇEK ve ÇALIŞTIR (production)
+#    docker-compose.dev.yml   → yerel geliştirme (kaynak kod + hot reload)
 #
 #  ── Coolify kurulumu ────────────────────────────────────────────────────────
 #  1. Resource Type: **Docker Compose** → aşağıdaki YAML'ı yapıştırın
-#  2. Environment Variables:
-#         SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY,
-#         TMDB_API_KEY, CORS_ORIGINS, TZ
-#         DOCKERHUB_USER=<docker hub kullanıcı adınız>
-#         IMAGE_TAG=1.1.0            ← sürüm sabitleyin (rollback için şart)
+#  2. Environment Variables (Coolify bunları konteynere enjekte eder):
+#         SUPABASE_URL
+#         SUPABASE_ANON_KEY
+#         SUPABASE_SERVICE_ROLE_KEY
+#         TMDB_API_KEY
+#         CORS_ORIGINS
+#         TZ=Europe/Istanbul
 #         PUBLIC_API_URL=https://movieapi.burakaydogan.net.tr
-#     (Coolify bunları doğrudan konteynere enjekte eder; `env_file` gerekmez.)
-#     ⚠️ Coolify "Docker Image" yerine "Docker Compose" seçin ve görüntüyü
-#        elle girin; kaynak klonlaması/yapması gerekmez.
+#     ⚠️ `environment:` bloğuna sır YAZMAYIN — oraya boş bir varsayılan koymak
+#        Coolify'in inject ettiği değerleri ezerdi. Sırlar yalnızca UI'dan gelir.
 #  3. Domain: api servisine bağlayın → movieapi.burakaydogan.net.tr, port 8000
-#  4. Healthcheck tanımlıdır — Coolify yönlendirmeyi buna göre başlatır
+#  4. Healthcheck tanımlıdır; Coolify yönlendirmeyi buna göre başlatır
 #
 #  ── Volume politikası ────────────────────────────────────────────────────────
 #  Coolify "Persistent Storage" ekranından da volume tanımlayabilirsiniz; bu
-#  durumda aşağıdaki `volumes:` bloğunu silip servislerde mount yollarını
-#  gösterdiğiniz yolları kullanın. Volume SİLERSENİZ domain güncellemeleri
-#  kalıcı olmaz (giriş betiği uyarı basar).
+#  durumda `volumes:` bloğunu silip servislerde mount yollarını gösterdiğiniz
+#  yolları kullanın. Volume SİLERSENİZ domain güncellemeleri kalıcı olmaz
+#  (giriş betiği uyarı basır).
+#
+#  ⚠️ `latest` etiketi HAREKETLİDİR. Yeni sürüm çıktığında bir sonraki
+#     deploy otomatik olarak yeni imajı çeker. Geri dönmek istiyorsanız
+#     production compose'da etiketi sabit sürüme çevirin (darkpuye/movieapp-api:1.1.0).
 # ══════════════════════════════════════════════════════════════════════════════
 
 name: movieapp
 
-# ── Ortak yapılandırma (iki servis de aynı imajı, aynı hacimleri kullanır) ───
-x-app: &app
-  # ⚠️ BU DOSYADA `build:` YOKTUR — bilinçli olarak.
-  #
-  # İmaj Docker Hub'dan ÇEKİLİR. Normal kullanım budur:
-  #     docker compose pull     → imajı indir
-  #     docker compose up -d    → çalıştır
-  #
-  # İmajı üretmek/göndermek için ayrı dosya kullanılır:
-  #     docker compose -f docker-compose.build.yml build
-  #     docker compose -f docker-compose.build.yml push
-  #
-  # Böylece production sunucusunda kaynak kodu ve Docker build zinciri
-  # BULUNMAZ; sunucu yalnızca imajı çeker. Coolify da yalnızca bu dosyayı
-  # kullanır.
-  #
-  # Etiketlendirme: IMAGE_TAG verilmezse `latest`. Sürüm sabitlemek için
-  # Coolify'da veya .env'de IMAGE_TAG=1.1.0 verin — `latest` etiketi
-  # hareketlidir ve rollback için uygun değildir.
-  image: ${DOCKERHUB_USER:-movieapp}/movieapp-api:${IMAGE_TAG:-latest}
-
-  # Eğer görseli kendi makinenizden üretip göndermediyseniz ve yalnızca
-  # denemek istiyorsanız, imajı şu komutla yerelde etiketleyin:
-  #     docker tag movieapp-api:latest movieapp/movieapp-api:latest
-
-  # Uzun sözdizimi + `required: false`: sunucuda .env yoksa da compose hata
-  # vermez (Docker Compose ≥ 2.24 gerekir; .env sürüm kontrolünde tutulmadığı
-  # için bu şart). Değerler Coolify UI'dan geliyorsa bu blok gereksizdir.
-  env_file:
-    - path: .env
-      required: false
-
-  volumes:
-    # Kontrol.py'nin güncellediği dosyalar — kalıcı olmalı.
-    - plugins:/app/Plugins
-    # watcher ↔ api iletişimi (kilit + durum JSON'ları ve yeniden yükleme
-    # bayrağı).
-    - state:/state
-
-  restart: unless-stopped
-  init: true
-
-  # Docker'ın 10 saniyelik varsayılan SIGKILL'i, FastAPI'nin graceful
-  # shutdown'unu (HTTP oturumlarını kapatma) kesecekti. 40 sn veriyoruz.
-  stop_grace_period: 40s
-
-  # Container çıktısını sınırla: uzun süre çalışan watcher logları diski
-  # doldurmasın (varsayılan: sınırsız json log).
-  logging:
-    driver: json-file
-    options:
-      max-size: "10m"
-      max-file: "3"
-
-  # Basit sertleştirme: uygulamanın root yetkisi veya ek capability ihtiyacı yok.
-  security_opt:
-    - no-new-privileges:true
-  cap_drop:
-    - ALL
-
-
 services:
-  # ── API ────────────────────────────────────────────────────────────────────
+
+  # ══════════════════════════════════════════════════════════════════════════
+  #  api — FastAPI + yeniden yükleme denetleyicisi
+  # ══════════════════════════════════════════════════════════════════════════
   api:
-    <<: *app
+    image: darkpuye/movieapp-api:latest
     container_name: movieapp-api
     command: ["api"]
+
+    restart: unless-stopped
+    init: true
+
+    # Docker'ın 10 saniyelik varsayılan SIGKILL'i, FastAPI'nin graceful
+    # shutdown'unu (HTTP oturumlarını kapatma) kesecekti. 40 sn veriyoruz.
+    stop_grace_period: 40s
+
+    # Sunucuda .env yoksa da compose hata vermesin (Docker Compose ≥ 2.24).
+    # Değerler Coolify UI'dan geliyorsa bu blok gereksizdir.
+    env_file:
+      - path: .env
+        required: false
 
     environment:
       # Operasyonel ayarlar. Sırlar (SUPABASE_*, TMDB_API_KEY) buraya
       # YAZILMAZ: burada geçersiz kılınır ve Coolify'in inject ettiği
-      # değerleri boşaltırdı. Onlar env_file / Coolify UI üzerinden gelir.
+      # değerleri boşaltırdı. Onlar Coolify UI üzerinden gelir.
       TZ: ${TZ:-Europe/Istanbul}
       DEBUG: ${DEBUG:-0}
+
+      # ⚠️ API_WORKERS 1'den fazla OLMAMALI. api/deps.py her worker sürecinde
+      #    Core/Helpers/Kontrol.py'yi çalıştırır; eşzamanlı worker'larda aynı
+      #    eklenti dosyasına yazma yarışı (dosya bozulması) oluşur.
       API_WORKERS: ${API_WORKERS:-1}
 
-      # Herkese açık adres — yalnızca teşris mesajlarında kullanılır.
-      # API'nin kendi adresi: https://movieapi.burakaydogan.net.tr
+      # Herkese açık adres — yalnızca teşhis mesajlarında kullanılır.
       PUBLIC_API_URL: ${PUBLIC_API_URL:-https://movieapi.burakaydogan.net.tr}
 
       # ⚠️ API_INTERNAL_URL'YI PUBLIC DOMAIN YAPMAYIN. Buradaki adres
       #    container→container (watcher → api) trafiğidir ve Docker ağında
       #    çalışır. https://movieapi.burakaydogan.net.tr yazarsanız watcher her
       #    yoklamada TLS + DNS + Coolify proxy'sine bağımlı hâle gelir; proxy
-      #    API konteyneriyle aynı ağda değilse veya TLS geçici olarak sorun
-      #    yaşarsa domain güncelleme SESSİZCE durur.
+      #    API konteyneriyle aynı ağda değilse domain güncelleme SESSİZCE durur.
       API_INTERNAL_URL: ${API_INTERNAL_URL:-http://api:8000}
 
     ports:
-      # Coolify bu portu otomatik algılar ve domain yönlendirmesini buna bağlar:
-      # movieapi.burakaydogan.net.tr → 8000.
+      # Coolify bu portu algılar ve domain yönlendirmesini buna bağlar:
+      # movieapi.burakaydogan.net.tr → 8000
       #
-      # ⚠️ API_BIND'i 127.0.0.1 YAPMAYIN (yerel override hariç): Coolify'in
-      #    proxy'si konteynere published port üzerinden bağlanır; localhost'a
-      #    bağlarsanız domain dışarıdan erişilemez olur.
+      # ⚠️ API_BIND'i 127.0.0.1 YAPMAYIN: Coolify'in proxy'si konteynere
+      #    published port üzerinden bağlanır; localhost'a bağlarsanız domain
+      #    dışarıdan erişilemez olur.
       - "${API_BIND:-0.0.0.0}:${API_PORT:-8000}:8000"
+
+    volumes:
+      # Kontrol.py'nin güncellediği eklenti dosyaları — kalıcı olmalı.
+      # Volume olmazsa güncellenen domainler her redeploy'da kaybolur.
+      - plugins:/app/Plugins
+      # watcher ↔ api iletişimi (kilit, durum JSON'ları, yeniden yükleme bayrağı).
+      - state:/state
 
     healthcheck:
       test: ["CMD", "python", "/app/ops/healthcheck.py", "api"]
@@ -142,19 +115,38 @@ services:
       retries: 5
       start_period: 45s
 
+    # Container çıktısını sınırla: uzun süre çalışan loglar diski doldurmasın.
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+    # Basit sertleştirme: uygulamanın root yetkisi veya ek capability ihtiyacı yok.
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+
     networks:
       - movieapp
 
 
-  # ── Domain güncelleyici ────────────────────────────────────────────────────
-  # Günlük 18:00'de ve bir eklenti domaini hata verdiğinde
-  # Core/Helpers/Kontrol.py çalıştırır; değişen domainler için API'yi
-  # yeniden yükletir.
+  # ══════════════════════════════════════════════════════════════════════════
+  #  domain-updater — günlük 18:00'de ve domain hatası anında Kontrol.py
+  # ══════════════════════════════════════════════════════════════════════════
   domain-updater:
-    <<: *app
+    image: darkpuye/movieapp-api:latest
     container_name: movieapp-domain-updater
     command: ["watcher"]
+
     restart: unless-stopped
+    init: true
+    stop_grace_period: 40s
+
+    env_file:
+      - path: .env
+        required: false
 
     environment:
       TZ: ${TZ:-Europe/Istanbul}
@@ -180,6 +172,16 @@ services:
       RUN_ON_START: ${RUN_ON_START:-0}
       KONTROL_TIMEOUT: ${KONTROL_TIMEOUT:-600}
 
+      # ⚠️ Aynı tuzak: container→container trafiği, public domain DEĞİL.
+      API_INTERNAL_URL: ${API_INTERNAL_URL:-http://api:8000}
+
+    volumes:
+      # Aynı Plugins volume'ü: güncellenen domainler buraya yazılır ve API
+      # yeniden yüklenirken aynı dosyaları okur.
+      - plugins:/app/Plugins
+      # watcher bu bayrağı yazar, api okur.
+      - state:/state
+
     depends_on:
       api:
         # API sağlıklı olmadan yoklama yapmanın anlamı yok; ayrıca watcher'ın
@@ -199,6 +201,17 @@ services:
       timeout: 10s
       retries: 3
       start_period: 30s
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
 
     networks:
       - movieapp
