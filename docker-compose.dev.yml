@@ -1,17 +1,24 @@
 # ══════════════════════════════════════════════════════════════════════════════
-#  Yerel geliştirme override'ı
+#  Yerel geliştirme override'ı — Docker Hub imajını KULLANMAZ
 #
 #  Kullanım:
 #      docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
 #
-#  docker-compose.dev.yml OLMADAN çalıştırmak üretim ayarlarını kullanır.
-#  Coolify dağıtımında bu dosya HİÇ kullanılmaz — yalnızca `docker-compose.yml`
-#  yapıştırılır.
+#  Neden `--build` şart: docker-compose.yml artık yalnızca `image:` içeriyor
+#  (build bloğu yok). `--build` olmadan compose Docker Hub'daki imajı çeker ve
+#  kaynak kod mount'unu uygulamaz — geliştirme için istediğimiz şey bu değil.
+#
+#  Üç dosyanın görevi:
+#    build.yml → imaj üret + gönder      (tek seferlik)
+#    .yml      → production, yalnızca image
+#    dev.yml   → bu dosya, kaynak kod + hot reload
+#
+#  Coolify dağıtımında bu dosya HİÇ kullanılmaz.
 #
 #  Farklar:
-#    • Kaynak kod bind mount edilir → düzenleme yeniden derleme gerektirmez.
-#    • uvicorn --reload açılır.
-#    • Alan adı yok, doğrudan http://localhost:8000.
+#    • Kaynak kod bind mount edilir → düzenleme yeniden derleme gerektirmez
+#    • uvicorn --reload açılır
+#    • Alan adı yok, doğrudan http://localhost:8000
 # ══════════════════════════════════════════════════════════════════════════════
 
 services:

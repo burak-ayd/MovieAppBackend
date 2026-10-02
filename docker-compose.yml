@@ -1,57 +1,71 @@
 # ══════════════════════════════════════════════════════════════════════════════
-#  MovieApp — Coolify / Docker Compose dağıtımı (üretim)
+#  MovieApp — PRODUCTION dağıtımı (Docker Hub imajı)
 #
-#  İki servis, TEK imaj:
+#  Bu dosyada `build:` YOKTUR. İmaj Docker Hub'dan çekilir; sunucuda kaynak
+#  kodu veya Docker build zinciri bulunmaz.
 #
-#    api     → FastAPI (uvicorn) + yeniden yükleme denetleyicisi  (:8000)
-#    watcher → domain güncelleyici (günlük 18:00 + domain hatası anında)
+#  ── Üç dosyanın görevi ──────────────────────────────────────────────────────
+#    docker-compose.build.yml → imajı ÜRET ve Docker Hub'a GÖNDER
+#                                 (yalnızca geliştirme makinesinde çalıştırılır)
+#    docker-compose.yml       → bu dosya; imajı ÇEK ve ÇALIŞTIR
+#                                 (Coolify ve production sunucusu)
+#    docker-compose.dev.yml   → yerel geliştirme (kaynak kod + hot reload)
 #
-#  Ortak iki birim hacmi:
-#
-#    plugins → /app/Plugins   Kontrol.py'nin düzenlediği eklenti dosyaları.
-#                              Volume olmasa güncellenen domainler her
-#                              redeploy'da KAYBOLUR.
-#    state   → /state         Kilit, durum JSON'ları ve yeniden yükleme bayrağı.
-#                              watcher buraya yazar, api oradan okur.
+#  ── İmajı üretip gönderme (tek seferlik, geliştirme makinesinde) ─────────────
+#    docker compose -f docker-compose.build.yml build
+#    docker compose -f docker-compose.build.yml push
 #
 #  ── Coolify kurulumu ────────────────────────────────────────────────────────
-#  1. Resource Type: Docker Compose → Compose YAML olarak bu dosyayı yapıştırın.
-#  2. Environment Variables bölümüne API anahtarlarını girin (aşağıdaki liste):
+#  1. Resource Type: **Docker Compose** → aşağıdaki YAML'ı yapıştırın
+#  2. Environment Variables:
 #         SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY,
 #         TMDB_API_KEY, CORS_ORIGINS, TZ
+#         DOCKERHUB_USER=<docker hub kullanıcı adınız>
+#         IMAGE_TAG=1.1.0            ← sürüm sabitleyin (rollback için şart)
+#         PUBLIC_API_URL=https://movieapi.burakaydogan.net.tr
 #     (Coolify bunları doğrudan konteynere enjekte eder; `env_file` gerekmez.)
-#  3. Domain: api servisine bağlayın, port 8000.
-#  4. Healthcheck zaten tanımlı — Coolify yönlendirmeyi buna göre başlatır.
-#  5. `docker-compose.dev.yml` bu dosyaya DOKUNMAZ, yalnızca yerel geliştirme
-#     için ayrı bir override'dır.
+#     ⚠️ Coolify "Docker Image" yerine "Docker Compose" seçin ve görüntüyü
+#        elle girin; kaynak klonlaması/yapması gerekmez.
+#  3. Domain: api servisine bağlayın → movieapi.burakaydogan.net.tr, port 8000
+#  4. Healthcheck tanımlıdır — Coolify yönlendirmeyi buna göre başlatır
 #
 #  ── Volume politikası ────────────────────────────────────────────────────────
 #  Coolify "Persistent Storage" ekranından da volume tanımlayabilirsiniz; bu
 #  durumda aşağıdaki `volumes:` bloğunu silip servislerde mount yollarını
 #  gösterdiğiniz yolları kullanın. Volume SİLERSENİZ domain güncellemeleri
-#  kalıcı olmaz (kontrol dosyası uyarı basar).
+#  kalıcı olmaz (giriş betiği uyarı basar).
 # ══════════════════════════════════════════════════════════════════════════════
 
 name: movieapp
 
 # ── Ortak yapılandırma (iki servis de aynı imajı, aynı hacimleri kullanır) ───
 x-app: &app
-  build:
-    context: .
-    dockerfile: Dockerfile
-    args:
-      APP_UID: "10001"
-      APP_GID: "10001"
-  # Yerel etiket. Kayıt defteri (GHCR) kullanmak isterseniz Coolify'da
-  # Build Pack ayarını "Docker Compose" + registry olarak tanımlayın ve
-  # buradaki değeri kendi repo adınızla değiştirin. Şimdilik `image` yalnızca
-  # yerel bir etiket olarak kullanılır, `build` her zaman yürütülür.
-  image: movieapp-api:${IMAGE_TAG:-local}
+  # ⚠️ BU DOSYADA `build:` YOKTUR — bilinçli olarak.
+  #
+  # İmaj Docker Hub'dan ÇEKİLİR. Normal kullanım budur:
+  #     docker compose pull     → imajı indir
+  #     docker compose up -d    → çalıştır
+  #
+  # İmajı üretmek/göndermek için ayrı dosya kullanılır:
+  #     docker compose -f docker-compose.build.yml build
+  #     docker compose -f docker-compose.build.yml push
+  #
+  # Böylece production sunucusunda kaynak kodu ve Docker build zinciri
+  # BULUNMAZ; sunucu yalnızca imajı çeker. Coolify da yalnızca bu dosyayı
+  # kullanır.
+  #
+  # Etiketlendirme: IMAGE_TAG verilmezse `latest`. Sürüm sabitlemek için
+  # Coolify'da veya .env'de IMAGE_TAG=1.1.0 verin — `latest` etiketi
+  # hareketlidir ve rollback için uygun değildir.
+  image: ${DOCKERHUB_USER:-movieapp}/movieapp-api:${IMAGE_TAG:-latest}
 
-  # Uzun sözdizimi + `required: false`: depoda .env yoksa da compose hata
-  # vermez (Docker Compose ≥ 2.24 gerekir; .env dosyası sürüm kontrolünde
-  # tutulmadığı için bu şart). Değerler Coolify UI'dan geliyorsa bu blok
-  # gereksizdir.
+  # Eğer görseli kendi makinenizden üretip göndermediyseniz ve yalnızca
+  # denemek istiyorsanız, imajı şu komutla yerelde etiketleyin:
+  #     docker tag movieapp-api:latest movieapp/movieapp-api:latest
+
+  # Uzun sözdizimi + `required: false`: sunucuda .env yoksa da compose hata
+  # vermez (Docker Compose ≥ 2.24 gerekir; .env sürüm kontrolünde tutulmadığı
+  # için bu şart). Değerler Coolify UI'dan geliyorsa bu blok gereksizdir.
   env_file:
     - path: .env
       required: false
@@ -59,7 +73,8 @@ x-app: &app
   volumes:
     # Kontrol.py'nin güncellediği dosyalar — kalıcı olmalı.
     - plugins:/app/Plugins
-    # watcher ↔ api iletişimi (kilit + yeniden yükleme bayrağı).
+    # watcher ↔ api iletişimi (kilit + durum JSON'ları ve yeniden yükleme
+    # bayrağı).
     - state:/state
 
   restart: unless-stopped

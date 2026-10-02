@@ -14,6 +14,14 @@
 #    paketi yalnızca o komutun binary'sini sağlar.
 #  • setuptools / wheel: sdist'ten kurulan paketler için. pip build izolasyonu
 #    kullandığından aslında gerekli değildir; eski kurulumlar için tutuluyor.
+#  • InquirerPy yalnızca tests/EklentiTestAraci.py (interaktif konsol aracı)
+#    tarafından kullanılıyor. Core/Helpers/HTMLHelper.py'deki import'u ölü
+#    koddu ve kaldırıldı — API çalışırken TTY olmadığı için orada da
+#    kullanılamaz. Zincir ~9 MB (prompt_toolkit + pygments + wcwidth).
+#  • playwright + playwright-stealth: 104 MB. İmajın %59'u. Tarayıcı binary'si
+#    ayrıca `playwright install chromium` ile (~400 MB) ve HTMLHelper
+#    `headless=False` kullandığı için container'da çalışmaz. Yalnızca yerelde
+#    Cloudflare Turnstile challenge çözmek isteyenler için.
 # ══════════════════════════════════════════════════════════════════════════════
 
 -r requirements.txt
@@ -22,10 +30,22 @@
 pytest
 pytest-asyncio
 
+# ── İnteraktif konsol aracı (tests/EklentiTestAraci.py) ──────────────────────
+# Menü/onarım soran CLI. API sunucusunda kullanılmaz.
+InquirerPy
+
 # ── Yerel oynatma (main__.py → Core/Media/MediaHandler.py) ──────────────────
 # Paket, `yt-dlp` adlı konsol komutunu sağlar. mpv/vlc oynatıcı ayrıca
 # sistemde kurulu olmalıdır (MediaHandler mpv/vlc yoksa uyarır).
 yt-dlp
+
+# ── Cloudflare Turnstile challenge (opsiyonel, ~104 MB) ──────────────────────
+# Kurulum SONRASI ayrıca tarayıcıyı indirmen gerekir:
+#     playwright install chromium
+# Core/Helpers/HTMLHelper.py kurulu değilse düz HTTP çekime düşer ve
+# `_playwright_get` sessizce atlanır (bkz. PLAYWRIGHT_KURULU).
+playwright
+playwright-stealth
 
 # ── Kaynak dağıtımından kurulum için ─────────────────────────────────────────
 setuptools

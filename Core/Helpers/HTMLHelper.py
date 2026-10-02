@@ -1,4 +1,3 @@
-from InquirerPy.containers import instruction
 from selectolax.parser import HTMLParser, Node
 import re
 import os

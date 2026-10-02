@@ -77,33 +77,28 @@ fastapi
 python-dotenv
 supabase
 
-# ── Konsol / etkileşim ───────────────────────────────────────────────────────
-# InquirerPy : Core/Helpers/HTMLHelper.py içinde kullanıcı onayı için.
-#              API çalışırken de import edilir, bu yüzden "geliştirme aracı"
-#              DEĞİLDİR ve burada kalır.
-#
+# ── Konsol ───────────────────────────────────────────────────────────────────
 # rich : Core/Helpers/Cli.py konsol nesnesi (`konsol = Console()`) ve
-#        Plugins/Dizibox.py logları. InquirerPy rich'i getirdiği için bugün
-#        çalışıyor, ancak doğrudan import edildiği için AÇIKÇA bildirilir
-#        (InquirerPy bir gün rich bağımlılığını bırakırsa burası çöker).
-InquirerPy
+#        Plugins/Dizibox.py logları.
 rich
 
-# ── Playwright (opsiyonel, Cloudflare challenge) ─────────────────────────────
-# Core/Helpers/HTMLHelper.py yalnızca Cloudflare Turnstile challenge tespit
-# edildiğinde tarayıcı açar. İki not:
+# ── Playwright: BİLEREK KURULMAZ (docker imajında yok) ─────────────────────
+# Cloudflare Turnstile challenge için tarayıcı gerekir, ama:
+#   • Tarayıcı binary'si pip ile GELMEZ (`playwright install chromium` gerekir,
+#     ~400 MB) — Dockerfile'da yok.
+#   • Core/Helpers/HTMLHelper.py `headless=False` ile açılır; container'da
+#     ekran olmadığı için zaten çalışmaz.
+#   • Playwright'in kendisi 104 MB — bağımlılıkların %59'u.
 #
-#   1) import MODÜL SEVİYESİNDE olduğu için kurulu olmazsa
-#      `import api.app` çöker → container hiç açılmaz. Bu yüzden burada.
-#   2) Tarayıcı BİNARYSİ (~400 MB) pip ile kurulmaz; `playwright install
-#      chromium` gerekir ve Dockerfile'da YOK. Core/Helpers/HTMLHelper.py
-#      bu durumu yakalar: düz HTTP yanıtı varsa onu döndürür, challenge
-#      çözülemezse hata verir. Yani bu paket "challenge varsa işe yarar,
-#      yoksa düz HTTP'ye düşer" modunda çalışır.
-#      Eklenmesi gerekiyorsa Dockerfile'a:
-#          RUN playwright install --with-deps chromium
-playwright
-playwright-stealth
+# Bu yüzden requirements.txt'e YAZILMAZ; Core/Helpers/HTMLHelper.py import'u
+# opsiyonel tutar (PLAYWRIGHT_KURULU bayrağı) ve kurulu değilse düz HTTP
+# çekime düşer. Challenge ile karşılaşırsanız `fetch_cf` açık bir hata mesajı
+# verir.
+#
+# Cloudflare challenge'a bağımlı yerel çalışma için:
+#     pip install playwright playwright-stealth
+#     playwright install chromium
+# (bkz. requirements-dev.txt)
 
 # ── Sunucu ───────────────────────────────────────────────────────────────────
 # uvicorn  : ASGI sunucusu (docker-compose → command: ["api"])

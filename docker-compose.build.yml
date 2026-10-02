@@ -1,0 +1,60 @@
+# ══════════════════════════════════════════════════════════════════════════════
+#  DERLEME ve YÜKLEME dosyası — production compose'u DEĞİLDİR
+#
+#  Bu dosya YALNIZCA imajı üretmek ve Docker Hub'a göndermek için kullanılır:
+#
+#      docker compose -f docker-compose.build.yml build
+#      docker compose -f docker-compose.build.yml push
+#
+#  Çalıştırıldığında servisler AÇILMAZ. Yalnızca `build:` komutuyla imaj
+#  üretilir ve `image:` etiketiyle etiketlenir.
+#
+#  Coolify veya sunucu yalnızca `docker-compose.yml` kullanır — o dosyada
+#  `build:` YOKTUR, sadece `image:` vardır. Yani:
+#
+#      geliştirme  →  docker-compose.dev.yml   (kaynak kod, hot reload)
+#      build/push  →  docker-compose.build.yml (imaj üret + gönder)
+#      production  →  docker-compose.yml       (yalnızca image, build yok)
+#
+#  ── Kurulum (Windows, Docker kurulu değilken) ───────────────────────────────
+#  Docker Desktop → https://www.docker.com/products/docker-desktop/
+#      1. WSL2'yi etkinleştir (PowerShell: `wsl --install`, sonra bilgisayarı
+#         yeniden başlat)
+#      2. Docker Desktop kur ve açılışta "Use WSL 2 based engine" seçili kalsın
+#      3. Doğrula:  docker version   ve   docker compose version
+#      4. Giriş:    docker login --username <DOCKERHUB_USER>
+#         (parola: Docker Hub → Account Settings → Personal access tokens)
+#
+#  ── Etiketleme ──────────────────────────────────────────────────────────────
+#  .env.docker veya ortam değişkeni:
+#      DOCKERHUB_USER=kullaniciadiniz
+#      IMAGE_TAG=1.1.0        (veya latest)
+#
+#  Etiket yazmazsanız değerler bu dosyanın varsayılanlarına düşer.
+#  ⚠️ IMAGE_TAG boş bırakılırsa Docker HUB adına da ETİKETİ YAZILMAZ; önceki
+#  etiketlerin üstüne yazmamak için `latest` önerilir.
+# ══════════════════════════════════════════════════════════════════════════════
+
+name: movieapp-build
+
+services:
+  api:
+    # Sadece `api` yeterli: iki servis de aynı imajı kullanır, imaj bir kez
+    # üretilir ve image: etiketi ikisine de uygulanır.
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        APP_UID: "10001"
+        APP_GID: "10001"
+
+    # Docker Hub'daki tam adres. ${DOCKERHUB_USER} verilmemişse
+    # "movieapp/movieapp-api" olarak etiketlenir (kendi hesabınızla değiştirin).
+    image: ${DOCKERHUB_USER:-movieapp}/movieapp-api:${IMAGE_TAG:-latest}
+
+    # ⚠️ BURAYA `profiles:` YAZILMAZ.
+    # Compose, profilli bir servisi ancak `--profile <ad>` verildiğinde
+    # `docker compose build` komutuna dahil eder. profiles olsaydı
+    # `--profile build-only` vermeden `build` çalıştırmak servisi sessizce
+    # atlar ve "hiçbir şey yapılacak değer" hatası verir.
+    command: ["api"]
