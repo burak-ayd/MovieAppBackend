@@ -150,25 +150,55 @@ fi
 # ── 4) Docker Hub girişi ─────────────────────────────────────────────────────
 step "Docker Hub oturumu"
 
-if [ -z "$DOCKERHUB_TOKEN" ] && [ -f "$TOKEN_FILE" ]; then
-  DOCKERHUB_TOKEN="$(cat "$TOKEN_FILE")"
-  ok "token dosyadan okundu: ${TOKEN_FILE}"
+# Önce MEVCUT oturumu kontrol et. `docker login` bilgileri
+# $DOCKER_CONFIG/config.json içine yazılır; betik bunu okumadan her seferinde
+# token istemek hataydı. Sıra:
+#   1) Açık zorlama (FORCE_LOGIN=1)  → atla
+#   2) Mevcut config'de oturum var     → devam et, token SORMA
+#   3) DOCKERHUB_TOKEN ortam değişkeni → kullan
+#   4) Token dosyası                  → kullan
+#   5) İnteraktif soru                → ekranda gizli al
+DOCKER_CONFIG_DIR="${DOCKER_CONFIG:-$HOME/.docker}"
+DOCKER_CFG="${DOCKER_CONFIG_DIR}/config.json"
+FORCE_LOGIN="${FORCE_LOGIN:-0}"
+
+session_var=0
+if [ "$FORCE_LOGIN" != "1" ] && [ -f "$DOCKER_CFG" ]; then
+  if grep -q '"auths"' "$DOCKER_CFG" 2>/dev/null \
+     && grep -qE 'index\.docker\.io|registry-1\.docker\.io|docker\.io' "$DOCKER_CFG" 2>/dev/null; then
+    session_var=1
+  elif grep -qE '"credsStore"|"credHelpers"' "$DOCKER_CFG" 2>/dev/null; then
+    session_var=1
+  fi
 fi
 
-if [ -z "$DOCKERHUB_TOKEN" ]; then
-  printf '  Docker Hub Personal Access Token: '
-  read -rs DOCKERHUB_TOKEN
-  printf '\n'
-  [ -n "$DOCKERHUB_TOKEN" ] || die "token boş — oturum açılamadı"
-  printf '  Kalıcı kayıt için: umask 077; printf %%s "$DOCKERHUB_TOKEN" > %s\n' "$TOKEN_FILE"
-  printf '  (kaydetmek istemiyorsanız bu adımı atlayın)\n'
-fi
+if [ "$session_var" = "1" ]; then
+  ok "mevcut Docker Hub oturumu bulundu (${DOCKER_CFG})"
+  warn "sudo docker login yaptıysanız kimlik /root/.docker'da olabilir ve burada görünmez."
+  warn "Bu durumda token sorulmadan push başarısız olur; FORCE_LOGIN=1 ile zorla giriş yapın."
+else
+  [ "$FORCE_LOGIN" = "1" ] && warn "FORCE_LOGIN=1 — mevcut oturum yok sayıldı, yeniden giriş yapılıyor"
 
-# --password-stdin: parola komut satırına ve shell history'ye GİRMEZ
-printf '%s' "$DOCKERHUB_TOKEN" | docker login --username "$DOCKERHUB_USER" --password-stdin >/dev/null \
-  || die "docker login başarısız — kullanıcı adı veya token hatalı"
-unset DOCKERHUB_TOKEN
-ok "oturum açıldı: ${DOCKERHUB_USER}"
+  if [ -z "$DOCKERHUB_TOKEN" ] && [ -f "$TOKEN_FILE" ]; then
+    DOCKERHUB_TOKEN="$(cat "$TOKEN_FILE")"
+    ok "token dosyadan okundu: ${TOKEN_FILE}"
+  fi
+
+  if [ -z "$DOCKERHUB_TOKEN" ]; then
+    printf '  Docker Hub Personal Access Token: '
+    read -rs DOCKERHUB_TOKEN
+    printf '\n'
+    [ -n "$DOCKERHUB_TOKEN" ] || die "token boş — oturum açılamadı"
+    printf '  Kalıcı kayıt için: umask 077; printf %%s "$DOCKERHUB_TOKEN" > %s\n' "$TOKEN_FILE"
+    printf '  (kaydetmek istemiyorsanız bu adımı atlayın)\n'
+  fi
+
+  # --password-stdin: parola komut satırına ve shell history'ye GİRMEZ
+  printf '%s' "$DOCKERHUB_TOKEN" | docker login --username "$DOCKERHUB_USER" --password-stdin >/dev/null \
+    || die "docker login başarısız — kullanıcı adı veya token hatalı"
+  unset DOCKERHUB_TOKEN
+  ok "oturum açıldı: ${DOCKERHUB_USER}"
+fi
 
 # ── 5) Derleme ───────────────────────────────────────────────────────────────
 # --pull: taban imajını (python:3.12-slim) güncel çeker → güvenlik yamaları
