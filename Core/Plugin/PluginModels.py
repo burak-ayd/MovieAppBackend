@@ -10,6 +10,11 @@ class SearchResult(BaseModel):
     title      : str
     url        : str
     poster     : Optional[str] = None
+    # TMDB'den gelen ek görseller (plugin sağlamazsa None kalır)
+    backdrop_url : Optional[str] = None
+    logo_url     : Optional[str] = None
+    imdb_id      : Optional[str] = None
+    tmdb_id      : Optional[int] = None
     plugin     : Optional[str] = None   # Hangi plugin'den geldiği bilgisi
     year       : Optional[Union[int, str]] = None
     media_type : Optional[str] = "movie"
@@ -30,6 +35,11 @@ class MainPageResult(BaseModel):
     url          : Optional[str] = None
     category     : Optional[str] = ""
     poster       : Optional[str] = None
+    # TMDB'den gelen ek görseller (plugin sağlamazsa None kalır)
+    backdrop_url : Optional[str] = None
+    logo_url     : Optional[str] = None
+    imdb_id      : Optional[str] = None
+    tmdb_id      : Optional[int] = None
     plugin     : Optional[str] = None
     language     : Optional[str] = None
     release_date : Optional[str] = None
@@ -86,7 +96,17 @@ class SeriesInfo(BaseModel):
 
     content_type : Optional[str]           = "series"
     url          : Optional[str]           = None
+    # --- Görseller ---
     poster       : Optional[str]           = None
+    # TMDB'den gelen ek görseller (plugin sağlamazsa None kalır)
+    backdrop_url : Optional[str]           = None   # Arka plan (yatay)
+    logo_url     : Optional[str]           = None   # Saydam logo
+    cast_images  : Optional[dict[str, str]] = None  # oyuncu adı → profil görseli
+
+    # --- Dış referanslar ---
+    imdb_id      : Optional[str]           = None   # tt1234567
+    tmdb_id      : Optional[int]           = None   # TMDB kimliği
+
     title        : Optional[str]           = None
     description  : Optional[str]           = None
     tags         : Optional[str]           = None
@@ -134,6 +154,9 @@ class MovieInfo(BaseModel):
     poster_url          : Optional[str]  = None   # Afiş (dikey)
     backdrop_url    : Optional[str]  = None   # Arka plan (yatay)
     fragman_url         : Optional[str]  = None   # Fragman linki (trailer_url)
+    # TMDB'den gelen ek görseller (plugin sağlamazsa None kalır)
+    logo_url            : Optional[str]  = None   # Saydam logo (yatay PNG)
+    cast_images         : Optional[dict[str, str]] = None  # oyuncu adı → profil görseli
 
     # --- Detaylar ---
     release_date            : Optional[str]  = None   # Çıkış yılı / tarihi (release_date)
@@ -153,6 +176,7 @@ class MovieInfo(BaseModel):
 
     # --- Dış referanslar ---
     imdb_id            : Optional[str]  = None   # tt1234567
+    tmdb_id            : Optional[int]  = None   # TMDB kimliği (varsa sorgu tek adımda)
 
     # --- Yönetici / yapım ---
     director        : Optional[str]  = None   # Film yönetmeni

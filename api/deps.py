@@ -11,6 +11,9 @@ istisnasıdır (SYNC_AUTH_PLAN.md §4.2). Gerekçesi: token gövdesi ve senkron
 red/kabul semantiği gizli kalmamalı, OpenAPI şeması belgelemelidir.
 """
 
+from __future__ import annotations
+
+import os
 from typing import Annotated, Optional
 
 from fastapi import Depends, HTTPException, status
@@ -19,12 +22,14 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from Core.Plugin.PluginManager import PluginManager
 from Core.Extractor.ExtractorManager import ExtractorManager
 from Core.Helpers.Kontrol import MainUrlGuncelleyici
+from Core.Helpers.TMDBEnricher import TMDBEnricher
 from Core.Libs.Supabase import SupabaseManager
 from Core.Libs.SupabaseAuth import (
     InvalidTokenError,
     SupabaseAuthManager,
     AuthConfigurationError,
 )
+from Core.Libs.TMDB import TMDBClient
 
 # ── Paylaşılan HTTP durum sabitleri ──────────────────────────────────────────
 # Starlette sürümleri arasında bu sabitlerin adı değişebiliyor
@@ -43,6 +48,8 @@ _plugin_manager: PluginManager | None = None
 _extractor_manager: ExtractorManager | None = None
 _supabase_manager: SupabaseManager | None = None
 _auth_manager: SupabaseAuthManager | None = None
+_tmdb_client: TMDBClient | None = None
+_tmdb_enricher: TMDBEnricher | None = None
 
 # Bearer şeması: `Authorization` başlığı yoksa 403 yerine 401 döner.
 _bearer_scheme = HTTPBearer(auto_error=False)
@@ -81,6 +88,28 @@ def get_auth_manager() -> SupabaseAuthManager:
     if _auth_manager is None:
         _auth_manager = SupabaseAuthManager()
     return _auth_manager
+
+
+def get_tmdb_client() -> TMDBClient:
+    """TMDB istemcisini döndürür (lazy singleton).
+
+    `TMDB_API_KEY` tanımlı değilse istem "devre dışı" kalır: tüm metotlar
+    ücretsizce `None` döner ve API uçları yalnızca eklenti verisiyle çalışır.
+    """
+    global _tmdb_client
+    if _tmdb_client is None:
+        _tmdb_client = TMDBClient()
+    return _tmdb_client
+
+
+def get_tmdb_enricher() -> TMDBEnricher:
+    """Görsel zenginleştiriciyi döndürür (lazy singleton)."""
+    global _tmdb_enricher
+    if _tmdb_enricher is None:
+        eszamanlilik = int(os.getenv("TMDB_ENRICH_CONCURRENCY", "5"))
+        zorunlu = os.getenv("TMDB_ENRICH_STRICT", "0").strip().lower() in ("1", "true", "yes", "on")
+        _tmdb_enricher = TMDBEnricher(get_tmdb_client(), eszamanlilik, zorunlu)
+    return _tmdb_enricher
 
 
 # ── Kimlik doğrulama bağımlılığı ─────────────────────────────────────────────

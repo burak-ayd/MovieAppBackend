@@ -5,9 +5,9 @@
 #
 #  Görevleri:
 #    1. Saat dilimini doğrular (18:00 güncellemesi buna bağlı).
-#    2. /app/Plugins birim hacmini, imajdaki değiştirilmemiş kopyadan
-#       (SEED_DIR) tamamlar — DIĞER VARSAYAN DOSYALARA DOKUNMAZ, çünkü
-#       içlerindeki main_url değerleri güncellenmiş olabilir.
+#    2. /app/Plugins birim hacmini imajdaki değiştirilmemiş kopyadan
+#       (SEED_DIR) eşitler — kod güncel olur, yalnızca main_url korunur
+#       (ops/seed_plugins.py).
 #    3. /state paylaşılan hacmini hazırlar.
 #    4. İstenen rolü çalıştırır (exec = PID 1 olur, sinyal iletimi düzgün).
 # ══════════════════════════════════════════════════════════════════════════════
@@ -51,33 +51,23 @@ fi
 
 # ── Plugins birim hacmi ──────────────────────────────────────────────────────
 # Docker, hacmi İLK mount'ta imajdaki içerikle doldurur. Ancak hacim zaten
-# varsa (yeniden deploy) imajdaki YENİ eklentiler oraya girmez. Bu yüzden
-# eksik dosyaları elle tamamlıyoruz.
+# varsa (yeniden deploy) imajdaki içerik GÖRÜNMEZ: mount, image'ın üstünü
+# örter ve /app/Plugins volume'daki (eski) kopyadır.
 #
-# Var olan dosyalara DOKUNULMAZ: içlerindeki main_url değerleri Kontrol.py
-# tarafından güncellenmiş olabilir ve o değerler kalıcıdır.
+# Bu yüzden her açılışta volume, imajdaki değiştirilmemiş kopyayla (SEED_DIR)
+# eşitlenir. `ops/seed_plugins.py` yalnızca `main_url` değerini korur — çünkü
+# `Core/Helpers/Kontrol.py` çalışma sırasında dosyalarda yalnızca O satırı
+# değiştirir. Böylece hem domain güncellemeleri kalıcı olur hem de kod
+# değişiklikleri (poster @2x, yeni alanlar, hata düzeltmeleri) deploy'da
+# gerçekten uygulanır.
 PLUGINS_DIR="$PROJECT_ROOT/Plugins"
 
 if [ -d "$SEED_DIR/Plugins" ]; then
     mkdir -p "$PLUGINS_DIR"
-    copied=0
-    while IFS= read -r -d '' file; do
-        target="$PLUGINS_DIR/$(basename "$file")"
-        if [ ! -e "$target" ]; then
-            # -p (preserve) KULLANILMAZ: root olmayan kullanıcı sahipliği
-            # koruyamaz ve `set -e` yüzünden entrypoint'in burada ölmesine
-            # yol açar.
-            cp "$file" "$target"
-            copied=$((copied + 1))
-        fi
-    done < <(find "$SEED_DIR/Plugins" -maxdepth 1 -type f -name '*.py' -print0)
-
-    total=$(find "$PLUGINS_DIR" -maxdepth 1 -type f -name '*.py' | wc -l | tr -d ' ')
-    if [ "$copied" -gt 0 ]; then
-        log "Plugins: $copied yeni eklenti eklendi (toplam $total)."
-    else
-        log "Plugins: volume hazır ($total eklenti, güncel domainler korunuyor)."
-    fi
+    python /app/ops/seed_plugins.py \
+        --seed "$SEED_DIR/Plugins" \
+        --target "$PLUGINS_DIR" \
+        --lock "$STATE_DIR/seed.lock"
 else
     # Tohum dizini yoksa Plugins/ yine de konteyner içinde çalışır ama
     # güncellenen domainler kaybolur — sessiz veri kaybı.

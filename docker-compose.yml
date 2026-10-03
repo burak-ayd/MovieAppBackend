@@ -178,6 +178,13 @@ services:
       # healthcheck 180s sınırından küçük olmalıdır.
       HEARTBEAT_INTERVAL: ${HEARTBEAT_INTERVAL:-60}
 
+      # ── TMDB görsel zenginleştirme ──────────────────────────────────────
+      # Anahtar yoksa uçlar yalnızca eklenti görselleriyle çalışır.
+      TMDB_ENRICH_CONCURRENCY: ${TMDB_ENRICH_CONCURRENCY:-5}
+      TMDB_ENRICH_STRICT: ${TMDB_ENRICH_STRICT:-0}
+      TMDB_CIRCUIT_THRESHOLD: ${TMDB_CIRCUIT_THRESHOLD:-5}
+      TMDB_CIRCUIT_SECONDS: ${TMDB_CIRCUIT_SECONDS:-45}
+
       # ⚠️ Aynı tuzak: container→container trafiği, public domain DEĞİL.
       API_INTERNAL_URL: ${API_INTERNAL_URL:-http://api:8000}
 

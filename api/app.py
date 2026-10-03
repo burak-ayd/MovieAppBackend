@@ -53,6 +53,8 @@ from api.deps import (  # noqa: E402
     get_auth_manager,
     get_plugin_manager,
     get_supabase_async,
+    get_tmdb_client,
+    get_tmdb_enricher,
 )
 from api.routes import (  # noqa: E402
     auth_router,
@@ -154,6 +156,28 @@ def _validate_config() -> None:
 
     debug_log("CORS izinli origin'ler:", ALLOWED_ORIGINS or "(tanımlı değil)")
 
+    enricher = get_tmdb_enricher()
+    if enricher.aktif:
+        istemci = get_tmdb_client()
+        tur = {"v3": "API Key (v3 auth)", "v4": "Read Access Token (v4)"}.get(
+            istemci.anahtar_turu, "BİLİNMEYEN biçim"
+        )
+        konsol.log(
+            f"[bold cyan][TMDB][/] Görsel zenginleştirme AÇIK — poster, arka plan, "
+            f"logo ve oyuncu fotoğrafları TMDB'den alınır (kimlik türü: {tur})."
+        )
+        if istemci.anahtar_turu == "bilinmiyor":
+            konsol.log(
+                "[bold yellow][TMDB][UYARI][/] TMDB_API_KEY beklenen biçimde değil. "
+                "Geçerli bir anahtar değilse TMDB 401 döner ve görseller eklentiden "
+                "gelir. https://www.themoviedb.org/settings/api → 'API Key (v3 auth)'."
+            )
+    else:
+        konsol.log(
+            "[yellow][TMDB][/] Kapalı (TMDB_API_KEY tanımlı değil) — görseller "
+            "eklenti kaynağından gelir."
+        )
+
 
 async def _report_verification_mode() -> None:
     """
@@ -211,6 +235,7 @@ async def lifespan(app: FastAPI):
     await pm.close_plugins()           # HTTP oturumlarını temizle
     await get_supabase_async().close_async()   # PostgREST bağlantılarını kapat
     await get_auth_manager().close()           # GoTrue bağlantılarını kapat
+    await get_tmdb_client().aclose()           # TMDB HTTP oturumunu kapat
 
 
 app = FastAPI(

@@ -149,6 +149,7 @@ Upstream ayrıca şu projelere teşekkür eder:
 │   │   ├── EmbedHelper.py    #   lazy-load gömülü adres çıkarma
 │   │   ├── HTMLHelper.py     #   HTML çekme/ayrıştırma, Cloudflare aşma
 │   │   ├── Kontrol.py        #   domain otomatik güncelleme
+│   │   ├── TMDBEnricher.py   #   TMDB görsel zenginleştirme (fail-open)
 │   │   └── Sifreleme.py      #   CryptoJS · HexCodec · Packer
 │   ├── Libs/                 # Supabase, Supabase Auth, TMDB, modeller
 │   ├── Media/                # yerel oynatma (yt-dlp / mpv / vlc)
@@ -158,6 +159,7 @@ Upstream ayrıca şu projelere teşekkür eder:
 ├── ops/                      # container süreç yönetimi
 │   ├── supervisor.py         #   uvicorn + yeniden yükleme denetleyicisi
 │   ├── domain_watcher.py     #   09:00 + 18:00 slotlarında domain kontrolü/güncellemesi
+│   ├── seed_plugins.py       #   Plugins volume'unu imajdaki kodla eşitler (main_url korunur)
 │   └── healthcheck.py        #   sağlık kontrolü
 ├── docker/entrypoint.sh      # container giriş noktası
 ├── app_version.py            #   sürümün TEK kaynağı (1.2.0)
@@ -245,6 +247,40 @@ docker compose up -d --build
 > oraya boş bir varsayılan koymak, Coolify'in inject ettiği değerleri ezer.
 > Blok bilinçli olarak yalnızca operasyonel değişkenleri içerir.
 
+### TMDB görsel zenginleştirme
+
+Poster, arka plan (backdrop), logo ve oyuncu fotoğrafı gibi **görsel alanlar
+TMDB'den** alınır. Akış:
+
+1. Önce TMDB'ye istek atılır.
+2. TMDB cevap verirse (görsel döndürürse) eklenti verisinin **yerine** yazılır.
+3. TMDB çökerse, rate limit'e takılırsa, anahtar tanımlı değilse veya eşleşme
+   bulunamazsa **hiçbir şey değişmez** — eklentinin kendi görselleri aynen kalır.
+
+Eşleştirme sırası: `tmdb_id` → `imdb_id` → (isim + yıl) bulanık arama.
+
+| Uç | Görseller |
+|---|---|
+| `GET /api/plugins/{name}/main-page` | `poster` (w342), `backdrop_url`, `logo_url` |
+| `GET /api/plugins/{name}/search` | `poster` (w342), `backdrop_url`, `logo_url` |
+| `GET /api/plugins/{name}/random` | `poster` (w342), `backdrop_url`, `logo_url` |
+| `GET /api/search` | `poster` (w342), `backdrop_url`, `logo_url` |
+| `GET /api/plugins/{name}/detail` | `poster_url` (w500), `backdrop_url`, `logo_url`, `cast_images`, (boşsa) `fragman_url` |
+
+Anahtar olmadan da her şey çalışır — zenginleştirme isteğe bağlıdır.
+
+| Değişken | Varsayılan | Açıklama |
+|---|---|---|
+| `TMDB_API_KEY` | — | Boşsa zenginleştirme kapalı |
+| `TMDB_ENRICH_CONCURRENCY` | `5` | Aynı anda en fazla kaç öğe için istek |
+| `TMDB_ENRICH_STRICT` | `0` | `1` ise hata isteği düşürür (yalnız ayıklama) |
+| `TMDB_CIRCUIT_THRESHOLD` | `5` | Bu kadar ardışık hatadan sonra istek atılmaz |
+| `TMDB_CIRCUIT_SECONDS` | `45` | Devre kesici süresi |
+
+Maliyet kontrolü için **TTL önbellek (7 gün)**, **tek-istek (single-flight)** ve
+**devre kesici** vardır: aynı içerik tekrar sorgulanmaz, aynı içerik için 20
+eşzamanlı istek tek isteğe düşer, çöken servise istek yağdırılmaz.
+
 ### Sürüm bilgisi
 
 Sürümün **tek kaynağı** proje kökündeki `app_version.py` dosyasıdır:
@@ -287,6 +323,7 @@ güncellemesi. Slotlar arasında dışarıya hiçbir istek atılmaz.
 | `PROBE_REQUIRE_RESULTS` | `0` | Boş sonuç hata sayılsın mı (kapalı önerilir) |
 | `RUN_ON_START` | `0` | Watcher açılışta da bir kez güncellesin mi |
 | `APP_VERSION` | `1.2.0` | `app_version.py` yerine geçici sürüm damgası |
+| `TMDB_API_KEY` | — | Görsel zenginleştirme anahtarı (yoksa uçlar eklenti verisiyle çalışır) |
 | `API_WORKERS` | `1` | ⚠️ 1'den fazlası `Plugins/` dosyalarına eşzamanlı yazma riski taşır |
 
 > `DOMAIN_CHECK_INTERVAL` (eski 5 dakikalık yoklama aralığı) kullanımdan

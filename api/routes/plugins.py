@@ -23,11 +23,43 @@ from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query
 
-from api.deps import get_plugin_manager, get_extractor_manager
+from api.deps import get_plugin_manager, get_extractor_manager, get_tmdb_enricher
 from Core.Plugin.PluginBase import PluginBase
 from Core.Plugin.PluginModels import SeriesInfo
 
 router = APIRouter(prefix="/api", tags=["plugins"])
+
+
+# ── TMDB görsel zenginleştirme ────────────────────────────────────────────────
+#
+# Poster/arka plan/logo/oyuncu fotoğrafı gibi GÖRSEL alanlar TMDB'den alınır.
+# Sıra: önce TMDB'ye istek → cevap varsa eklenti değerinin yerine yazılır.
+# TMDB çökerse, rate limit'e takılırsa, anahtar yoksa veya eşleşme bulunamazsa
+# zenginleştirme sessizce atlanır ve eklentinin kendi verisi aynen kalır.
+#
+# `try/except` burada savunma katmanıdır: zenginleştirme bir "bonus"tur ve
+# hiçbir koşulda isteği düşürmemelidir.
+
+async def _zenginlestir(oge: Any, detay: bool = False) -> Any:
+    """Tek modeli TMDB görselleriyle zenginleştirir (hata halinde dokunmaz)."""
+    enricher = get_tmdb_enricher()
+    if not enricher.aktif:
+        return oge
+    try:
+        return await enricher.zenginlestir(oge, detay=detay)
+    except Exception:
+        return oge
+
+
+async def _zenginlestir_liste(ogeler: list[Any], detay: bool = False) -> list[Any]:
+    """Liste sonucunu paralel zenginleştirir (hata halinde dokunmaz)."""
+    enricher = get_tmdb_enricher()
+    if not enricher.aktif or not ogeler:
+        return ogeler
+    try:
+        return await enricher.zenginlestir_liste(ogeler, detay=detay)
+    except Exception:
+        return ogeler
 
 
 # ── Yardımcı Fonksiyonlar ────────────────────────────────────────────────────
@@ -97,6 +129,7 @@ async def get_all_plugins_random(
             return p_name, []
         with suppress(Exception):
             res = await p.get_random(count=count_per_plugin)
+            res = await _zenginlestir_liste(res or [])
             return p_name, res or []
         return p_name, []
 
@@ -132,6 +165,7 @@ async def get_plugin_random(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Rastgele içerik alınırken hata: {e}")
 
+    results = await _zenginlestir_liste(results or [])
     return {
         "plugin": plugin.name,
         "count": len(results),
@@ -173,6 +207,7 @@ async def get_plugin_main_page(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Ana sayfa yüklenirken hata: {e}")
 
+    results = await _zenginlestir_liste(results or [])
     return {
         "plugin": plugin.name,
         "page": page,
@@ -193,6 +228,7 @@ async def search_in_plugin(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Arama sırasında hata: {e}")
 
+    results = await _zenginlestir_liste(results or [])
     return {
         "plugin": plugin.name,
         "query": q,
@@ -217,6 +253,9 @@ async def get_content_detail(
 
     if not media_info:
         raise HTTPException(status_code=404, detail="İçerik detayı bulunamadı.")
+
+    # Detayda logo, arka plan ve oyuncu fotoğrafları da istenir.
+    media_info = await _zenginlestir(media_info, detay=True)
 
     data = _serialize(media_info)
     data["is_series"] = isinstance(media_info, SeriesInfo)
@@ -275,7 +314,7 @@ async def search_all_plugins(
         with suppress(Exception):
             results = await plugin.search(q)
             if results:
-                items = _serialize(results)
+                items = _serialize(await _zenginlestir_liste(results))
                 for item in items:
                     item["plugin"] = plugin_name
                 return items

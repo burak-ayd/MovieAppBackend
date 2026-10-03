@@ -27,6 +27,12 @@ Plan: `SYNC_AUTH_PLAN.md` (Faz 1–3, backend).
 | Yöntem | Endpoint | Açıklama |
 |--------|----------|----------|
 | `GET` | `/` | API sağlık kontrolü (`status` + `version`) |
+
+> **Görseller TMDB'den gelir.** `main-page`, `search`, `random` ve `detail`
+> uçlarındaki poster / arka plan / logo / oyuncu fotoğrafı alanları TMDB'ye
+> sorgulanarak doldurulur. TMDB cevap vermezse (çöktüğünde, rate limit'e
+> takıldığında, anahtar tanımlı olmadığında) uçlar **eklentinin kendi
+> görselleriyle** çalışmaya devam eder — davranış hiçbir koşulda bozulmaz.
 | `GET` | `/api/plugins` | Tüm eklentileri listele |
 | `GET` | `/api/plugins/{name}` | Eklenti detayı |
 | `GET` | `/api/plugins/{name}/categories` | Eklenti kategorileri |
