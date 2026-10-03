@@ -62,6 +62,19 @@ def image_url(path: Optional[str], size: str) -> Optional[str]:
 
 # Parantez içi yıl: "Matrix (1999)" → "Matrix"
 _YIL_PARANTEZ = re.compile(r"\((?:19|20)\d{2}[^)]*\)")
+# Bölüm ibareleri: "1.Sezon 2.Bölüm", "2 Sezon 5. Bölüm", "Season 3 Episode 4".
+# Bazı eklentiler (örn. DiziBox "Son Bölümler" kartları) başlığa bunu ekliyor.
+# Bu ekler hem ekranda gereksiz hem de TMDB aramasını bozuyor; canlı ölçümde
+# "Esaretin Bedeli izle" sorgusu 0 sonuç dönerken temizlenmiş hâli 1 sonuç döndü.
+_BOLUM_IBARESI = re.compile(
+    r"\b\d+\s*\.?\s*sezon\b"          # 1.Sezon / 2 Sezon
+    r"|\b\d+\s*\.?\s*bölüm\b"        # 2.Bölüm / 3 Bölüm
+    r"|\bseason\s*\d+\b"             # Season 3
+    r"|\bepisode\s*\d+\b"            # Episode 4
+    r"|\bsezon\s*\d+\b"              # sezon 1 (noktasız)
+    r"|\bbölüm\s*\d+\b",             # bölüm 2 (noktasız)
+    re.IGNORECASE,
+)
 # Eklenti başlıklarındaki pazarlama kelimeleri ("... izle", "full türkçe")
 _PAZARLAMA = re.compile(
     r"\b(izle|izleyin|full\s*(film|türkçe)?|filmini\s*full|alt\s*yazılı|altyazılı|"
@@ -76,6 +89,7 @@ def normalize_title(raw: Optional[str]) -> str:
     if not raw:
         return ""
     metin = _YIL_PARANTEZ.sub(" ", str(raw))
+    metin = _BOLUM_IBARESI.sub(" ", metin)
     metin = _PAZARLAMA.sub(" ", metin)
     metin = re.sub(r"[^\w\s]", " ", metin, flags=re.UNICODE)
     return re.sub(r"\s+", " ", metin).strip().lower()

@@ -36,7 +36,7 @@ class DiziBox(PluginBase):
         "dbxu"          : "1722403730363"
     }
     main_page = {
-        "Ana Sayfa"            : main_url,
+        # "Ana Sayfa"            : main_url,
         "Son Bölümler"      : f"{main_url}/tum-bolumler/page/SAYFA/",
         "Popüler Diziler"   : f"{main_url}/tum-bolumler/page/SAYFA/?tip=populer",
         "Yeni Eklenenler"   : f"{main_url}/dizi-arsivi/page/SAYFA/",
@@ -66,6 +66,58 @@ class DiziBox(PluginBase):
         # "Western"           : f"{main_url}/dizi-arsivi/page/SAYFA/?tur[0]=western&yil&imdb",
         # "Yarışma"           : f"{main_url}/dizi-arsivi/page/SAYFA/?tur[0]=yarisma&yil&imdb",
 }
+
+    # ── Bölüm kartı başlığı ────────────────────────────────────────────────
+    # "/tum-bolumler/" kartlarında `a[title]` ve `img[alt]` KİRLİDİR:
+    #   "War 1.Sezon 1.Bölüm"
+    # Oysa HTML'de temiz seri adı AYRI bir elemanda duruyor:
+    #   <b class="series-name">WAR</b> <span class="season">1.SEZON </span>
+    #   <b class="episode">1.BÖLÜM</b>
+    #
+    # Neden önemli? Başlık ekranda DİZİ adı olarak gösterilir ve TMDB eşleştirmesinde
+    # sorgu olarak kullanılır. "1.Sezon 1.Bölüm" ekleri hem görüntüyü bozar hem de
+    # canlı ölçümde TMDB'in aramasını tamamen boşuna düşürüyordu.
+    #
+    # Dönüş: (temiz seri adı, sezon no, bölüm no)
+    @staticmethod
+    def _bolum_karti_basligi(veri) -> tuple[str | None, int | None, int | None]:
+        """Bölüm kartından (seri adı, sezon, bölüm) çıkarır."""
+
+        def _sayi(metin: str | None) -> int | None:
+            if not metin:
+                return None
+            eslesme = re.search(r"(\d+)", metin)
+            return int(eslesme.group(1)) if eslesme else None
+
+        # 1) Tercih edilen yol: HTML'deki temiz seri adı
+        seri_adi = veri.css("b.series-name::text").get()
+        sezon = _sayi(veri.css("span.season::text").get())
+        bolum = _sayi(veri.css("b.episode::text").get())
+
+        # 2) Yedek: kirli başlıktan bölüm ibarelerini ayıklayıp temizle
+        if not seri_adi:
+            ham = (
+                veri.css("a.episode-card-title::attr(title)").get()
+                or veri.css("img.afis::attr(alt)").get()
+                or veri.css("a.episode-card-title::text").get()
+            )
+            if not ham:
+                return None, None, None
+
+            ham = re.sub(r"\s+", " ", ham).strip()
+            sezon_eslesme = re.search(r"(\d+)\s*\.?\s*Sezon", ham, re.IGNORECASE)
+            bolum_eslesme = re.search(r"(\d+)\s*\.?\s*Bölüm", ham, re.IGNORECASE)
+            sezon = sezon or (int(sezon_eslesme.group(1)) if sezon_eslesme else None)
+            bolum = bolum or (int(bolum_eslesme.group(1)) if bolum_eslesme else None)
+
+            # "1.Sezon 2.Bölüm" ve sonrası atılır → geriye saf seri adı kalır
+            seri_adi = re.sub(r"\d+\s*\.?\s*Sezon.*$", "", ham, flags=re.IGNORECASE)
+            if not sezon_eslesme:
+                seri_adi = re.sub(r"\d+\s*\.?\s*Bölüm.*$", "", seri_adi, flags=re.IGNORECASE)
+            seri_adi = seri_adi.strip()
+
+        seri_adi = re.sub(r"\s+", " ", (seri_adi or "")).strip(" -|·")
+        return (seri_adi or None), sezon, bolum
 
     async def get_main_page(self, page: int = 1, url: str = "", category: str = "") -> list[MainPageResult] | dict[str, list[MainPageResult]]:
         clean_url = (url or "").strip()
@@ -100,34 +152,40 @@ class DiziBox(PluginBase):
 
         if len(sections) > 0:
             for veri in sections[0].css("article.article-episode-card"):
-                title = veri.css("img.afis::attr(alt)").get()
+                seri_adi, sezon, bolum = self._bolum_karti_basligi(veri)
                 link = veri.css("article.article-episode-card a.figure-link::attr(href)").get()
                 poster = veri.css("img.afis::attr(data-src)").get() or veri.css("img.afis::attr(src)").get()
                 pub_date = veri.css("div.publish-date::text").get()
                 popular_series.append(
                     MainPageResult(
                         category="Popüler Diziler",
-                        title=title.strip() if title else None,
+                        title=seri_adi,
                         url=self.fix_url(link),
                         poster=self.fix_url(poster),
                         release_date=pub_date.strip() if pub_date else None,
+                        media_type="tv",
+                        season=sezon,
+                        episode=bolum,
                         plugin=self.name,
                     )
                 )
 
         if len(sections) > 1:
             for veri in sections[1].css("article.article-episode-card"):
-                title = veri.css("img.afis::attr(alt)").get()
+                seri_adi, sezon, bolum = self._bolum_karti_basligi(veri)
                 link = veri.css("article.article-episode-card a.figure-link::attr(href)").get()
                 poster = veri.css("img.afis::attr(data-src)").get() or veri.css("img.afis::attr(src)").get()
                 pub_date = veri.css("div.publish-date::text").get()
                 new_episodes.append(
                     MainPageResult(
                         category="Yeni Bölümler",
-                        title=title.strip() if title else None,
+                        title=seri_adi,
                         url=self.fix_url(link),
                         poster=self.fix_url(poster),
                         release_date=pub_date.strip() if pub_date else None,
+                        media_type="tv",
+                        season=sezon,
+                        episode=bolum,
                         plugin=self.name,
                     )
                 )
@@ -183,6 +241,8 @@ class DiziBox(PluginBase):
             results = []
             for veri in secici.css("article.detailed-article, article.article-episode-card"):
                 title_tag = veri.css("h3 a")
+                season = episode = None
+                media_type = None
                 if title_tag:
                     # 1. detailed-article formatı (/dizi-arsivi/ vb.)
                     title = title_tag.css("::text").get()
@@ -195,13 +255,12 @@ class DiziBox(PluginBase):
                     imdb = veri.css("span.label-imdb b::text").re_first(r"[\d.,]+")
                     langs = veri.css("span.custom-field").re(r"icon-globe.*?\d{4}\s*-\s*(.+?)\s*\|")
                     language = langs[0].strip() if langs else None
+                    media_type = "tv"
                 else:
                     # 2. article-episode-card formatı (/tum-bolumler/ vb.)
-                    title = (
-                        veri.css("a.episode-card-title::attr(title)").get()
-                        or veri.css("img.afis::attr(alt)").get()
-                        or veri.css("a.episode-card-title::text").get()
-                    )
+                    #    Başlık "Dizi 1.Sezon 2.Bölüm" biçimindedir; temiz seri adı
+                    #    b.series-name içinden okunur (yoksa başlıktan ayıklanır).
+                    title, season, episode = self._bolum_karti_basligi(veri)
                     item_url = veri.css("a.episode-card-title::attr(href)").get() or veri.css("a.figure-link::attr(href)").get()
                     description = None
                     cat = category or None
@@ -210,6 +269,7 @@ class DiziBox(PluginBase):
                     imdb = veri.css("span.label-imdb b::text").re_first(r"[\d.,]+")
                     lang_img = veri.css("div.language img::attr(alt)").get()
                     language = lang_img.strip() if lang_img else None
+                    media_type = "tv"
 
                 if not title or not item_url:
                     continue
@@ -226,7 +286,10 @@ class DiziBox(PluginBase):
                         description=description,
                         release_date=release_date,
                         rating=imdb,
-                        language="ALTYAZI",#language,
+                        language="ALTYAZI",#language),
+                        media_type=media_type,
+                        season=season,
+                        episode=episode,
                         plugin=self.name,
                     )
                 )

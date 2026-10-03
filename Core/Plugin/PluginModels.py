@@ -40,6 +40,11 @@ class MainPageResult(BaseModel):
     logo_url     : Optional[str] = None
     imdb_id      : Optional[str] = None
     tmdb_id      : Optional[int] = None
+    # Bölüm kartlarında (örn. "Son Bölümler"): başlık SERİ adıdır, bölüm bilgisi
+    # burada tutulur. Böylece başlık hem ekranda hem TMDB eşleştirmesinde doğru kalır.
+    media_type   : Optional[str] = None   # "movie" | "tv" (TMDB eşleştirme ipucu)
+    season       : Optional[int] = None
+    episode      : Optional[int] = None
     plugin     : Optional[str] = None
     language     : Optional[str] = None
     release_date : Optional[str] = None

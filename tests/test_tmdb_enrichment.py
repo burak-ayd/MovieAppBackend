@@ -78,6 +78,9 @@ class FakeTMDB:
             # ("Esaretin Bedeli izle" → 0, "esaretin bedeli" → 1).
             if any(pazarlama in q for pazarlama in ("izle", "full film", "full türkçe")):
                 return httpx.Response(200, json={"results": []})
+            if "sezon" in q or "bölüm" in q or "bolum" in q or "season" in q:
+                # Canlı davranış: bölüm ibareli sorgu eşleşmez.
+                return httpx.Response(200, json={"results": []})
             if "matrix" in q:
                 return httpx.Response(200, json={"results": [{
                     "id": 603, "media_type": "movie", "title": "The Matrix",
@@ -126,6 +129,43 @@ def test_normalizasyon():
     assert normalize_title("The Matrix (1999) izle") == "the matrix"
     assert normalize_title("  Şüpheli  ") == "şüpheli"
     assert normalize_title(None) == ""
+
+
+@pytest.mark.parametrize(
+    "ham, beklenen",
+    [
+        # DiziBox "Son Bölümler" kartlarındaki gerçek başlıklar
+        ("War 1.Sezon 1.Bölüm", "war"),
+        ("Zmora 1.Sezon 1.Bölüm", "zmora"),
+        ("All Creatures Great and Small 7.Sezon 3.Bölüm", "all creatures great and small"),
+        ("DARK MATTER (2024) 2.Sezon 6.Bölüm", "dark matter"),
+        ("4 Blocks Zero 1.Sezon 2.Bölüm", "4 blocks zero"),
+        ("Breaking Bad 1. Sezon 2. Bölüm", "breaking bad"),
+        # Boşluklu/noktasız varyantlar
+        ("Succesion sezon 3 bölüm 4", "succesion"),
+        # İngilizce
+        ("Succesion Season 3 Episode 4", "succesion"),
+        ("The Office S02E05", "the office s02e05"),
+    ],
+)
+def test_bolum_ibareleri_temizlenir(ham, beklenen):
+    """
+    Regresyon: bölüm ibareleri eşleştirmeyi bozuyordu.
+
+    DiziBox'un "Son Bölümler"/"Popüler Diziler" kategorilerinde başlık
+    "War 1.Sezon 1.Bölüm" biçiminde geliyor; bu ibareler temizlenmezse TMDB
+    hiç eşleşmiyor.
+    """
+    assert normalize_title(ham) == beklenen
+
+
+@pytest.mark.parametrize(
+    "baslik",
+    ["1917", "2012", "Blade Runner 2049", "9", "300"],
+)
+def test_yil_taşıyan_basliklar_bozulmaz(baslik):
+    """Sadece "sezon/bölüm" ibareleri atılır; yıllar (1917, 2049) KALIR."""
+    assert normalize_title(baslik) == baslik.lower()
 
 
 def test_yil_ayristirma():
@@ -526,6 +566,50 @@ async def test_pazarlama_kelimeli_baslik_temizlenip_eslesir():
     assert sonuc.poster == "https://image.tmdb.org/t/p/w342/poster.jpg", "kirli başlık eşleşmeli"
     # Kritik: TMDB'ye KİRLİ başlık değil, temizlenmiş başlık gönderilmeli.
     assert sahte.sorgular == ["the matrix"], f"beklenmeyen sorgular: {sahte.sorgular}"
+    await tmdb.aclose()
+
+
+async def test_bolum_ibareli_baslik_temizlenip_eslesir():
+    """
+    Regresyon: DiziBox "Son Bölümler" kartları.
+
+    Başlık "The Office 1.Sezon 2.Bölüm" biçimindeydi ve TMDB'ye aynen gönderiliyordu;
+    sahte TMDB (canlı davranış gibi) böyle sorgulara 0 sonuç veriyor. Temizleme
+    devrede olduğu için yine de eşleşmelidir.
+
+    Not: `media_type="tv"` bilerek veriliyor (DiziBox yalnızca dizi döndürür) ve
+    sahte sunucu "the office" için TV sonucu döndürüyor — yani film/dizi cezası
+    da devreye giriyor ve doğru sonucu veriyor.
+    """
+    tmdb, sahte = istemci_uret()
+    enricher = TMDBEnricher(tmdb)
+
+    oge = MainPageResult(
+        title="The Office 1.Sezon 2.Bölüm", url="https://s/m", poster=None,
+        media_type="tv", season=1, episode=2,
+    )
+    sonuc = await enricher.zenginlestir(oge)
+
+    assert sonuc.poster == "https://image.tmdb.org/t/p/w342/poster.jpg"
+    assert sonuc.tmdb_id == 2316, "TV sonucu eşleşmeli"
+    assert sahte.sorgular and "sezon" not in sahte.sorgular[0], sahte.sorgular
+    assert "bölüm" not in sahte.sorgular[0], sahte.sorgular
+    await tmdb.aclose()
+
+
+async def test_media_tipi_cezasi_calisir():
+    """`media_type="tv"` iken film sonucu kabul edilmemeli (DiziBox yalnızca dizi)."""
+    tmdb, _ = istemci_uret()
+    enricher = TMDBEnricher(tmdb)
+
+    dizi_oldugu_halde = MainPageResult(title="The Matrix 1.Sezon 1.Bölüm", url="https://s/m",
+                                       poster="https://s/kendi.jpg", media_type="tv")
+    sonuc = await enricher.zenginlestir(dizi_oldugu_halde)
+    assert sonuc.poster == "https://s/kendi.jpg", "tv ipucu ile film eşleşmemeli"
+
+    tip_verilmezse = MainPageResult(title="The Matrix 1.Sezon 1.Bölüm", url="https://s/m", poster=None)
+    sonuc2 = await enricher.zenginlestir(tip_verilmezse)
+    assert sonuc2.poster == "https://image.tmdb.org/t/p/w342/poster.jpg", "tip yoksa eşleşmeli"
     await tmdb.aclose()
 
 

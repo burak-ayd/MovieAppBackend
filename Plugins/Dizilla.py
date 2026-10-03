@@ -72,7 +72,7 @@ class Dizilla(PluginBase):
     }
 
     main_page = {
-        "Ana Sayfa": main_url,
+        # "Ana Sayfa": main_url,
         "Yeni Eklenen Bölümler": f"{main_url}/tum-bolumler",
         "Yeni Eklenen Diziler": f"{main_url}/arsiv",
         "Aile": f"{main_url}/api/bg/findSeries?releaseYearStart=1900&releaseYearEnd=2024&imdbPointMin=5&imdbPointMax=10&categoryIdsComma=15&countryIdsComma=&orderType=date_desc&languageId=-1&currentPage=1&currentPageCount=24&queryStr=&categorySlugsComma=&countryCodesComma=",
