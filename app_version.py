@@ -25,7 +25,7 @@ import os
 APP_NAME = "MovieApp API"
 
 # SemVer: MAJOR.MINOR.PATCH
-APP_VERSION = "1.3.0"
+APP_VERSION = "1.3.1"
 
 
 def resolve_version() -> str:
